@@ -4,6 +4,8 @@ import 'screens/profile_screen.dart';
 import 'screens/add_medicine_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/caregiver_screen.dart';
+import 'screens/medication_screen.dart';
+import 'screens/main_wrapper.dart';
 
 void main() {
   runApp(const MyApp());
@@ -26,7 +28,7 @@ class MyApp extends StatelessWidget {
       //   fontFamily: 'Roboto', // Default standard font, can be changed later
       // ),
       // home: const HomeScreen(),
-      home: const HomeScreen(),
+      home: const MainWrapper(),
     );
   }
 }

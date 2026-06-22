@@ -1,14 +1,17 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
-import '../widgets/home/date_selector.dart';
-import '../widgets/home/summary_cards.dart';
-import '../widgets/home/medication_list.dart';
-import '../models/adherence_log.dart';
-import '../view_models/daily_task.dart';
-import '../mock/medication.dart';
-import '../mock/adherence_log.dart';
-import '../mock/app_notification.dart';
-import '../utils/app_colours.dart';
+import '../../widgets/home/date_selector.dart';
+import '../../widgets/home/summary_cards.dart';
+import '../../widgets/home/medication_list.dart';
+import '../../models/adherence_log.dart';
+import '../../view_models/daily_task.dart';
+import '../../mock/medication.dart';
+import '../../mock/adherence_log.dart';
+import 'package:intl/intl.dart';
+import '../../mock/app_notification.dart';
+import '../../utils/app_colours.dart';
+import '../../mock/message_of_the_day.dart';
+import '../../mock/user_profile.dart';
 import 'notifications_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -166,12 +169,25 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final unreadNotificationsCount = mockNotifications.where((n) => !n.read).length;
-    
+    final unreadNotificationsCount = mockNotifications
+        .where((n) => !n.read)
+        .length;
+    final messageData = mockMessagesOfTheDay.firstWhereOrNull(
+      (msg) => msg.patientId == '1',
+    );
+    final formattedTime = messageData != null
+        ? 'Today, ${DateFormat('h:mm a').format(messageData.timestamp)}'
+        : '';
+    final caregiverUser = messageData != null
+        ? mockUsers.firstWhereOrNull((u) => u.id == messageData.caregiverId)
+        : null;
+    final caregiverName = caregiverUser?.name ?? 'Caregiver';
+
     // build today's tasks
     List<DailyTask> todayTasks = _generateTasksForDate(_selectedDate);
 
     // calculate today's adherence summary
+    // knt use overal patient adherence stats cuz might chg date
     int total = todayTasks.length;
     int taken = todayTasks
         .where((task) => task.log?.status == LogStatus.taken)
@@ -191,7 +207,10 @@ class _HomeScreenState extends State<HomeScreen> {
             onTap: () => _selectDate(context),
             borderRadius: BorderRadius.circular(12),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 8.0,
+                vertical: 4.0,
+              ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -286,7 +305,64 @@ class _HomeScreenState extends State<HomeScreen> {
 
             // summary cards
             SummaryCards(total: total, taken: taken, missed: missed),
-            const SizedBox(height: 24),
+
+            // message of the day
+            if (messageData != null) ...[
+              Container(
+                margin: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 20,
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColours.primaryPink,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+
+                child: Row(
+                  children: [
+                    const Icon(Icons.favorite, color: Colors.white, size: 18),
+                    const SizedBox(width: 12),
+
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            messageData.message,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '$caregiverName · $formattedTime',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.7),
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ] else ...[
+              const SizedBox(height: 8),
+            ],
 
             // medication list
             MedicationList(

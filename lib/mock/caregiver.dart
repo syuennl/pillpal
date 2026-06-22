@@ -1,44 +1,96 @@
-import '../view_models/patient_info.dart';
-import '../view_models/caregiver_info.dart';
+import 'package:pillpal/mock/user_profile.dart';
+import '../models/caregiver_relationship.dart';
+import '../view_models/overall_patient_adherence_stats.dart';
 
-// mock data for caregiver screen
-final List<PatientInfo> mockPatients = [
-  PatientInfo(
+final List<CaregiverRelationship> mockCaregiverRelationships = [
+  // john doe's caregivers
+  CaregiverRelationship(
     id: '1',
-    name: 'Robert Johnson',
-    medicationsCount: 5,
-    missedDosesToday: 4,
-    adherenceRate: 45,
+    patientId: mockUsers[0].id, // john doe
+    caregiverId: mockUsers[1].id, // michael chen
+    relationship: CaregiverRelationshipType.familyMember,
+    sinceDate: DateTime(2024, 3),
   ),
-  PatientInfo(
+
+  CaregiverRelationship(
     id: '2',
-    name: 'John Doe',
-    medicationsCount: 4,
-    missedDosesToday: 1,
-    adherenceRate: 85,
+    patientId: mockUsers[0].id,
+    caregiverId: mockUsers[2].id, // sarah johnson
+    relationship: CaregiverRelationshipType.primaryCaregiver,
+    sinceDate: DateTime(2024, 1, 10),
   ),
-  PatientInfo(
+
+  // john doe's patients
+  CaregiverRelationship(
     id: '3',
-    name: 'Jane Smith',
-    medicationsCount: 2,
-    missedDosesToday: 0,
-    adherenceRate: 98,
+    patientId: mockUsers[4].id, // robert johnson
+    caregiverId: mockUsers[0].id, // john doe
+    relationship: CaregiverRelationshipType.primaryCaregiver,
+    sinceDate: DateTime(2024, 6, 2),
+  ),
+
+  CaregiverRelationship(
+    id: '4',
+    patientId: mockUsers[5].id, // laura smith
+    caregiverId: mockUsers[0].id,
+    relationship: CaregiverRelationshipType.primaryCaregiver,
+    sinceDate: DateTime(2024, 8, 18),
+  ),
+
+  CaregiverRelationship(
+    id: '5',
+    patientId: mockUsers[3].id, // jane doe
+    caregiverId: mockUsers[0].id,
+    relationship: CaregiverRelationshipType.familyMember,
+    sinceDate: DateTime(2024, 8, 25),
+  ),
+
+  // robert johnson's patients
+  CaregiverRelationship(
+    id: '6',
+    patientId: mockUsers[1].id, // michael chen
+    caregiverId: mockUsers[2].id, // sarah johnson
+    relationship: CaregiverRelationshipType.primaryCaregiver,
+    sinceDate: DateTime(2024, 10, 7),
+  ),
+
+  // robert johnson's patients
+  CaregiverRelationship(
+    id: '7',
+    patientId: mockUsers[2].id, // sarah johnson
+    caregiverId: mockUsers[4].id, // robert johnson
+    relationship: CaregiverRelationshipType.familyMember,
+    sinceDate: DateTime(2024, 11, 22),
   ),
 ];
 
-final List<CaregiverInfo> mockCaregivers = [
-  CaregiverInfo(
-    id: '1',
-    name: 'Michael Chen',
-    relationship: 'Family Member',
-    phone: '+1 (555) 345-6789',
-    sinceDate: 'Mar 2024',
+// mock metrics map for patient users
+final Map<String, OverallPatientAdherenceStats> mockPatientMetrics = {
+  mockUsers[3].id: OverallPatientAdherenceStats(
+    // jane doe
+    takenToday: 2,
+    missedToday: 0,
+    totalTaken: 56,
+    totalMissed: 1,
+    totalSnoozed: 2,
+    adherencePercentage: 98.0,
   ),
-  CaregiverInfo(
-    id: '2',
-    name: 'Sarah Johnson',
-    relationship: 'Primary Caregiver',
-    phone: '+1 (555) 234-5678',
-    sinceDate: 'Jan 2024',
+  mockUsers[4].id: OverallPatientAdherenceStats(
+    // robert johnson
+    takenToday: 1,
+    missedToday: 4,
+    totalTaken: 25,
+    totalMissed: 30,
+    totalSnoozed: 5,
+    adherencePercentage: 45.0,
   ),
-];
+  mockUsers[5].id: OverallPatientAdherenceStats(
+    // laura smith
+    takenToday: 3,
+    missedToday: 1,
+    totalTaken: 85,
+    totalMissed: 15,
+    totalSnoozed: 0,
+    adherencePercentage: 85.0,
+  ),
+};

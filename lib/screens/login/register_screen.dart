@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
-import '../../utils/app_colours.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../main_wrapper.dart';
+import '../../services/auth_service.dart';
+import '../../widgets/login/auth_text_field.dart';
+import '../../widgets/login/auth_scaffold.dart';
+import '../../widgets/login/auth_button.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -10,12 +14,13 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
+  final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  bool _showPassword = false;
   String? _errorMessage;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -26,332 +31,164 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  void _handleRegister() {
-    final name = _nameController.text.trim();
-    final email = _emailController.text.trim();
-    final password = _passwordController.text;
-    final confirmPassword = _confirmPasswordController.text;
-
-    if (name.isEmpty || email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
-      setState(() {
-        _errorMessage = 'Please fill in all fields';
-      });
-      return;
+  String? _validateName(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Please enter your full name';
     }
+    return null;
+  }
 
-    if (password != confirmPassword) {
-      setState(() {
-        _errorMessage = 'Passwords do not match';
-      });
-      return;
+  String? _validateEmail(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Please enter your email';
     }
-
-    if (password.length < 6) {
-      setState(() {
-        _errorMessage = 'Password must be at least 6 characters';
-      });
-      return;
+    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+    if (!emailRegex.hasMatch(value.trim())) {
+      return 'Please enter a valid email address';
     }
+    return null;
+  }
 
+  String? _validatePassword(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Please create a password';
+    }
+    if (value.length < 6) {
+      return 'Password must be at least 6 characters';
+    }
+    return null;
+  }
+
+  String? _validateConfirmPassword(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Please confirm your password';
+    }
+    if (value != _passwordController.text) {
+      return 'Passwords do not match';
+    }
+    return null;
+  }
+
+  Future<void> _handleRegister() async {
     setState(() {
       _errorMessage = null;
     });
 
-    // Navigate to main wrapper
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (context) => const MainWrapper()),
-      (route) => false,
-    );
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await AuthService().register(
+        _emailController.text.trim(),
+        _passwordController.text.trim(),
+        _nameController.text.trim(),
+      );
+
+      if (!mounted) return;
+
+      // navigate to main wrapper
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const MainWrapper()),
+        (route) => false,
+      );
+    } on FirebaseAuthException catch (e) {
+      debugPrint('REGISTER ERROR CODE: ${e.code}');
+      String message;
+      if (e.code == 'email-already-in-use') {
+        message = 'This email is already registered. Try logging in.';
+      } else if (e.code == 'invalid-email') {
+        message = 'Please enter a valid email address.';
+      } else if (e.code == 'weak-password') {
+        message = 'Password is too weak.';
+      } else {
+        message = 'Registration failed. Please try again.';
+      }
+
+      setState(() => _errorMessage = message);
+    } catch (e) {
+      setState(() => _errorMessage = 'Something went wrong. Please try again.');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColours.backgroundGreen,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            // Back Button
-            Positioned(
-              top: 12,
-              left: 12,
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back_ios, color: AppColours.fontBrown, size: 20),
-                onPressed: () => Navigator.pop(context),
+    return AuthScaffold(
+      title: "Create Account",
+      errorMessage: _errorMessage,
+      children: [
+        Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // name
+              AuthTextField(
+                label: 'Full Name',
+                hintText: 'Enter your full name',
+                controller: _nameController,
+                keyboardType: TextInputType.text,
+                validator: _validateName,
               ),
-            ),
+              const SizedBox(height: 32),
 
-            Center(
-              child: SingleChildScrollView(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const SizedBox(height: 40),
-                      const Text(
-                        'Create Account',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 30,
-                          fontWeight: FontWeight.bold,
-                          color: AppColours.fontBrown,
-                        ),
-                      ),
-                      const SizedBox(height: 40),
-
-                      // Name Field
-                      const Text(
-                        'Full Name',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.grey,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        decoration: BoxDecoration(
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.02),
-                              blurRadius: 8,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: TextField(
-                          controller: _nameController,
-                          decoration: InputDecoration(
-                            hintText: 'Enter your full name',
-                            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                            fillColor: Colors.white,
-                            filled: true,
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.grey[200]!),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: AppColours.primaryGreen, width: 1.5),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Email Field
-                      const Text(
-                        'Email',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.grey,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        decoration: BoxDecoration(
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.02),
-                              blurRadius: 8,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: TextField(
-                          controller: _emailController,
-                          keyboardType: TextInputType.emailAddress,
-                          decoration: InputDecoration(
-                            hintText: 'Enter your email',
-                            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                            fillColor: Colors.white,
-                            filled: true,
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.grey[200]!),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: AppColours.primaryGreen, width: 1.5),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Password Field
-                      const Text(
-                        'Password',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.grey,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        decoration: BoxDecoration(
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.02),
-                              blurRadius: 8,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: TextField(
-                          controller: _passwordController,
-                          obscureText: !_showPassword,
-                          decoration: InputDecoration(
-                            hintText: 'Create a password',
-                            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                            fillColor: Colors.white,
-                            filled: true,
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.grey[200]!),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: AppColours.primaryGreen, width: 1.5),
-                            ),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                _showPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                                color: Colors.grey,
-                              ),
-                              onPressed: () {
-                                setState(() {
-                                  _showPassword = !_showPassword;
-                                });
-                              },
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Confirm Password Field
-                      const Text(
-                        'Confirm Password',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.grey,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        decoration: BoxDecoration(
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.02),
-                              blurRadius: 8,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: TextField(
-                          controller: _confirmPasswordController,
-                          obscureText: !_showPassword,
-                          decoration: InputDecoration(
-                            hintText: 'Confirm your password',
-                            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                            fillColor: Colors.white,
-                            filled: true,
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.grey[200]!),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: AppColours.primaryGreen, width: 1.5),
-                            ),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                _showPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                                color: Colors.grey,
-                              ),
-                              onPressed: () {
-                                setState(() {
-                                  _showPassword = !_showPassword;
-                                });
-                              },
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Error message
-                      if (_errorMessage != null) ...[
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.red[50],
-                            border: Border.all(color: Colors.red[200]!),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            _errorMessage!,
-                            style: TextStyle(
-                              color: Colors.red[800],
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-
-                      // Sign Up Button
-                      ElevatedButton(
-                        onPressed: _handleRegister,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColours.primaryGreen,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 2,
-                        ),
-                        child: const Text(
-                          'Create Account',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Terms agreement
-                      const Text(
-                        'By creating an account, you agree to our Terms & Conditions',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                        ),
-                      ),
-                      const SizedBox(height: 40),
-                    ],
-                  ),
-                ),
+              // email
+              AuthTextField(
+                label: 'Email',
+                hintText: 'Enter your email',
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                validator: _validateEmail,
               ),
-            ),
-          ],
+              const SizedBox(height: 32),
+
+              // password
+              AuthTextField(
+                label: 'Password',
+                hintText: 'Create a password',
+                controller: _passwordController,
+                keyboardType: TextInputType.text,
+                isPassword: true,
+                validator: _validatePassword,
+              ),
+              const SizedBox(height: 32),
+
+              // confirm password
+              AuthTextField(
+                label: 'Confirm Password',
+                hintText: 'Confirm your password',
+                controller: _confirmPasswordController,
+                keyboardType: TextInputType.text,
+                isPassword: true,
+                validator: _validateConfirmPassword,
+              ),
+              const SizedBox(height: 32),
+
+              // sign up button
+              AuthButton(
+                label: 'Create Account',
+                onPressed: _handleRegister,
+                isLoading: _isLoading,
+              ),
+              const SizedBox(height: 16),
+
+              // terms agreement
+              const Text(
+                'By creating an account, you agree to our Terms & Conditions',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }

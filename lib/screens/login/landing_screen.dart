@@ -98,7 +98,7 @@ class LandingScreen extends StatelessWidget {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
-                        elevation: 4,
+                        elevation: 0,
                       ),
                       child: const Text(
                         'Login',

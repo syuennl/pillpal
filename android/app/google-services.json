@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "604934344731",
+    "project_id": "pillpal-b2350",
+    "storage_bucket": "pillpal-b2350.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:604934344731:android:91c757d2a24a4af00f28be",
+        "android_client_info": {
+          "package_name": "com.example.pillpal"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDPzinIuFXFKkjI9PY-Z7j0qFFtYQ3XG2g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

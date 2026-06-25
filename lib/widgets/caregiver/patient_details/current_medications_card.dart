@@ -11,7 +11,7 @@ class CurrentMedicationsCard extends StatelessWidget {
   Widget _buildMedicationItem(Medication med) {
     final name = med.name;
     final dosage = med.formattedDosage;
-    final frequency = med.frequencyType.displayName;
+    final frequency = med.frequencyDisplay;
     final timeStr = med.scheduledTimes.isNotEmpty
         ? med.scheduledTimes
               .map(

@@ -60,4 +60,37 @@ enum FrequencyType {
   final String displayName;
 
   const FrequencyType({required this.displayName});
+
+  String toDisplayString({List<int>? selectedDays, int? intervalDays}) {
+    switch (this) {
+      case FrequencyType.specificDays:
+        if (selectedDays == null || selectedDays.isEmpty) {
+          return displayName;
+        }
+        final sortedDays = List<int>.from(selectedDays)..sort();
+        const dayNames = {
+          1: 'Mon',
+          2: 'Tue',
+          3: 'Wed',
+          4: 'Thu',
+          5: 'Fri',
+          6: 'Sat',
+          7: 'Sun',
+        };
+        final names = sortedDays
+            .map((d) => dayNames[d] ?? '')
+            .where((name) => name.isNotEmpty)
+            .join(', ');
+        return 'Every $names';
+
+      case FrequencyType.interval:
+        if (intervalDays == null || intervalDays <= 0) {
+          return displayName;
+        }
+        return 'Every $intervalDays day${intervalDays == 1 ? '' : 's'}';
+
+      default:
+        return displayName;
+    }
+  }
 }

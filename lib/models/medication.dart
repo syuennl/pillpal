@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:pillpal/models/enums/medication_enums.dart';
 
 class Medication {
@@ -57,4 +58,97 @@ class Medication {
       ? ''
       : '$strengthValue $strengthUnit';
   int get timesPerDay => scheduledTimes.length;
+
+  String get frequencyDisplay => frequencyType.toDisplayString(
+        selectedDays: selectedDays,
+        intervalDays: intervalDays,
+      );
+
+  // ------------ Firestore serialisation ------------
+  static int _timeToInt(TimeOfDay t) => t.hour * 60 + t.minute; // to minutes
+  static TimeOfDay _intToTime(int minutes) =>
+      TimeOfDay(hour: minutes ~/ 60, minute: minutes % 60);
+
+  /// converts into a Firestore-safe map
+  /// Note: `id` is NOT included, it's the Firestore document ID,
+  /// stored implicitly as the document key, not as a field.
+  Map<String, dynamic> toMap() {
+    return {
+      'userId': userId,
+      'name': name,
+      'type': type.name, // enum -> string
+      'imagePath': imagePath,
+
+      'quantity': quantity,
+      'dosageAmount': dosageAmount,
+      'dosageUnit': dosageUnit,
+      'frequencyType': frequencyType.name,
+
+      'selectedDays': selectedDays,
+      'intervalDays': intervalDays,
+
+      'strengthValue': strengthValue,
+      'strengthUnit': strengthUnit,
+      'scheduledTimes': scheduledTimes
+          .map(_timeToInt)
+          .toList(), // List<TimeOfDay> -> List<int>
+      'intakeInstruction': intakeInstruction.name,
+
+      'treatmentStartDate': Timestamp.fromDate(
+        treatmentStartDate,
+      ), // DateTime -> Timestamp
+      'treatmentEndDate': treatmentEndDate == null
+          ? null
+          : Timestamp.fromDate(treatmentEndDate!),
+      'expiryDate': expiryDate == null ? null : Timestamp.fromDate(expiryDate!),
+
+      'aiSummary': aiSummary,
+      'sideEffects': sideEffects,
+    };
+  }
+
+  /// rebuilds a Medication from a Firestore map
+  /// `documentId` = the Firestore doc ID, which becomes this object's `id`
+  factory Medication.fromMap(Map<String, dynamic> map, String documentId) {
+    return Medication(
+      id: documentId,
+      userId: map['userId'] as String,
+      name: map['name'] as String,
+      type: MedicationType.values.byName( // string -> enum
+        map['type'] as String,
+      ), 
+      imagePath: map['imagePath'] as String?,
+
+      quantity: map['quantity'] as int,
+      dosageAmount: (map['dosageAmount'] as num).toDouble(), // Firestore may store a whole num (e.g., 5) as an int, so read as num then convert to double
+      dosageUnit: map['dosageUnit'] as String,
+      frequencyType: FrequencyType.values.byName( 
+        map['frequencyType'] as String,
+      ),
+
+      // List<int> -> List<TimeOfDay>
+      selectedDays: (map['selectedDays'] as List<dynamic>?) // dynamic cuz originally list of ints, then bcome list of timeofday
+          ?.map((e) => e as int)
+          .toList(),
+      intervalDays: map['intervalDays'] as int?,
+
+      strengthValue: map['strengthValue'] as int?,
+      strengthUnit: map['strengthUnit'] as String?,
+
+      scheduledTimes: (map['scheduledTimes'] as List<dynamic>)
+          .map((e) => _intToTime(e as int))
+          .toList(), 
+      intakeInstruction: IntakeInstruction.values.byName(
+        map['intakeInstruction'] as String,
+      ),
+
+      treatmentStartDate: (map['treatmentStartDate'] as Timestamp).toDate(), // timestamp -? datetime
+      treatmentEndDate: (map['treatmentEndDate'] as Timestamp?)?.toDate(),
+      expiryDate: (map['expiryDate'] as Timestamp?)?.toDate(),
+      aiSummary: map['aiSummary'] as String?,
+      sideEffects: (map['sideEffects'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList(),
+    );
+  }
 }

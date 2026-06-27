@@ -48,7 +48,8 @@ class MedicationList extends StatelessWidget {
                 .map(
                   (task) => PendingMedicationCard(
                     medication: task.medication,
-                    scheduledTime: task.scheduledTime,
+                    scheduledTime: task.adjustedTime,
+                    isSnoozed: task.isSnoozed,
                     onTaken: () => onTaken(task),
                     onSnooze: () => onSnooze(task),
                     onSkip: () => onSkip(task),
@@ -68,7 +69,7 @@ class MedicationList extends StatelessWidget {
                 .map(
                   (task) => MissedMedicationCard(
                     medication: task.medication,
-                    scheduledTime: task.scheduledTime,
+                    scheduledTime: task.adjustedTime,
                     onTap: () => onTaken(task),
                   ),
                 )
@@ -86,7 +87,7 @@ class MedicationList extends StatelessWidget {
                 .map(
                   (task) => TakenMedicationCard(
                     medication: task.medication,
-                    scheduledTime: task.scheduledTime,
+                    scheduledTime: task.adjustedTime,
                   ),
                 )
                 .toList(),

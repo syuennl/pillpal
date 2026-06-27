@@ -6,6 +6,7 @@ import 'medication_card_shell.dart';
 class PendingMedicationCard extends StatelessWidget {
   final Medication medication;
   final TimeOfDay scheduledTime;
+  final bool isSnoozed;
 
   final VoidCallback onTaken;
   final VoidCallback onSnooze;
@@ -15,6 +16,7 @@ class PendingMedicationCard extends StatelessWidget {
     super.key,
     required this.medication,
     required this.scheduledTime,
+    this.isSnoozed = false,
     required this.onTaken,
     required this.onSnooze,
     required this.onSkip,
@@ -25,6 +27,7 @@ class PendingMedicationCard extends StatelessWidget {
     return MedicationCardShell(
       medication: medication,
       scheduledTime: scheduledTime,
+      timeColor: isSnoozed ? AppColours.primaryOrange : Colors.black54,
       child: Column(
         children: [
           // taken + snooze row

@@ -5,6 +5,7 @@ import 'package:pillpal/utils/app_colours.dart';
 
 import 'package:pillpal/services/auth_service.dart';
 import 'package:pillpal/services/medication_service.dart';
+import 'package:pillpal/services/notification_service.dart';
 
 import 'form_components/medication_type_selector.dart';
 import 'form_components/frequency_type_selector.dart';
@@ -185,8 +186,6 @@ class _MedicationFormState extends State<MedicationForm> {
   }
 
   Future<void> _handleSubmit() async {
-    setState(() => _isLoading = true);
-
     if (!_formKey.currentState!.validate()) return;
 
     if (_selectedFrequency == FrequencyType.specificDays &&
@@ -202,6 +201,8 @@ class _MedicationFormState extends State<MedicationForm> {
       );
       return;
     }
+
+    setState(() => _isLoading = true);
 
     final name = _nameController.text.trim();
 
@@ -248,7 +249,13 @@ class _MedicationFormState extends State<MedicationForm> {
           sideEffects: widget.medication!.sideEffects,
         );
 
+        // cancel using the OLD med
+        await NotificationService().cancelForMedication(widget.medication!);
+
         await MedicationService().updateMedication(updatedMed);
+
+        // schedule fresh with the NEW values
+        await NotificationService().scheduleForMedication(updatedMed);
 
         if (!mounted) return;
         Navigator.pop(context);
@@ -288,7 +295,10 @@ class _MedicationFormState extends State<MedicationForm> {
         );
 
         // save new med
-        await MedicationService().addMedication(newMed);
+        final newId = await MedicationService().addMedication(newMed);
+        await NotificationService().scheduleForMedication(
+          newMed.copyWith(id: newId),
+        );
 
         if (!mounted) return;
         Navigator.pop(context);
@@ -309,7 +319,7 @@ class _MedicationFormState extends State<MedicationForm> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error: ${e.toString()}'),
+          content: Text('Error: ${e.toString()}'), // TODO: swap to friendlier message?
           backgroundColor: AppColours.primaryRed,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
@@ -519,46 +529,46 @@ class _MedicationFormState extends State<MedicationForm> {
                     });
                   },
                 ),
-              ]
-              // interval days
-              else if (_selectedFrequency == FrequencyType.interval) ...[
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    const Text(
-                      'Every',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-
-                    SizedBox(
-                      width: 60,
-                      child: FormTextField(
-                        controller: _intervalDaysController,
-                        keyboardType: TextInputType.number,
-                        validator: (v) {
-                          if (_selectedFrequency != FrequencyType.interval)
-                            return null; // skip if not interval
-                          return _validateNumberFields(v);
-                        },
-                        hint: '1',
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-
-                    const Text(
-                      'day(s)',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
               ],
+              // interval days
+              // else if (_selectedFrequency == FrequencyType.interval) ...[
+              //   const SizedBox(height: 24),
+              //   Row(
+              //     children: [
+              //       const Text(
+              //         'Every',
+              //         style: TextStyle(
+              //           fontSize: 14,
+              //           fontWeight: FontWeight.w500,
+              //         ),
+              //       ),
+              //       const SizedBox(width: 12),
+
+              //       SizedBox(
+              //         width: 60,
+              //         child: FormTextField(
+              //           controller: _intervalDaysController,
+              //           keyboardType: TextInputType.number,
+              //           validator: (v) {
+              //             if (_selectedFrequency != FrequencyType.interval)
+              //               return null; // skip if not interval
+              //             return _validateNumberFields(v);
+              //           },
+              //           hint: '1',
+              //         ),
+              //       ),
+              //       const SizedBox(width: 12),
+
+              //       const Text(
+              //         'day(s)',
+              //         style: TextStyle(
+              //           fontSize: 14,
+              //           fontWeight: FontWeight.w500,
+              //         ),
+              //       ),
+              //     ],
+              //   ),
+              // ],
               SizedBox(height: 10),
 
               // scheduled times

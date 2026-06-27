@@ -1,15 +1,21 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
+import '../../services/medication_service.dart';
+import '../../services/adherence_log_service.dart';
+import '../../services/auth_service.dart';
+import '../../utils/app_colours.dart';
+
 import '../../widgets/home/date_selector.dart';
 import '../../widgets/home/summary_cards.dart';
 import '../../widgets/home/medication_list.dart';
+
 import '../../models/adherence_log.dart';
+import '../../models/medication.dart';
 import '../../view_models/daily_task.dart';
-import '../../mock/medication.dart';
-import '../../mock/adherence_log.dart';
-import 'package:intl/intl.dart';
+
 import '../../mock/app_notification.dart';
-import '../../utils/app_colours.dart';
 import '../../mock/message_of_the_day.dart';
 import '../../mock/user_profile.dart';
 import 'notifications_screen.dart';
@@ -24,6 +30,10 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late DateTime _selectedMonth;
   late DateTime _selectedDate;
+
+  final _medService = MedicationService();
+  final _logService = AdherenceLogService();
+  final _uid = AuthService().currentUser!.uid;
 
   // set default date to current date
   @override
@@ -88,16 +98,17 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  List<DailyTask> _generateTasksForDate(DateTime selectedDate) {
+  List<DailyTask> _generateTasksForDate(
+    DateTime selectedDate,
+    List<Medication> medications,
+    List<AdherenceLog> logs,
+  ) {
     List<DailyTask> tasks = [];
 
-    for (var med in mockMedications) {
+    for (var med in medications) {
       for (var time in med.scheduledTimes) {
-        AdherenceLog? matchingLog;
-
-        // find if there's a log recorded for the med at the scheduled time
-
-        matchingLog = mockAdherenceLogs.firstWhereOrNull(
+        AdherenceLog? matchingLog = logs.firstWhereOrNull(
+          // find if there's a log recorded for the med at the scheduled time
           (log) =>
               log.medicationId == med.id &&
               log.scheduledTime == time &&
@@ -120,51 +131,31 @@ class _HomeScreenState extends State<HomeScreen> {
     return tasks;
   }
 
-  void _handleTakeTask(DailyTask task) {
-    _updateAdherenceLog(task, LogStatus.taken);
+  Future<void> _handleTakeTask(DailyTask task) async {
+    await _logService.logTaken(
+      medicationId: task.medication.id,
+      userId: task.medication.userId,
+      scheduledTime: task.scheduledTime,
+      date: _selectedDate,
+    );
   }
 
-  void _handleSnoozeTask(DailyTask task) {
-    _updateAdherenceLog(task, LogStatus.snoozed, incrementSnooze: true);
+  Future<void> _handleSnoozeTask(DailyTask task) async {
+    await _logService.logSnoozed(
+      medicationId: task.medication.id,
+      userId: task.medication.userId,
+      scheduledTime: task.scheduledTime,
+      date: _selectedDate,
+    );
   }
 
-  void _handleSkipTask(DailyTask task) {
-    _updateAdherenceLog(task, LogStatus.missed);
-  }
-
-  void _updateAdherenceLog(
-    DailyTask task,
-    LogStatus status, {
-    bool incrementSnooze = false,
-  }) {
-    setState(() {
-      final existingLog = task.log;
-
-      if (existingLog != null) {
-        final index = mockAdherenceLogs.indexOf(existingLog);
-        if (index != -1) {
-          mockAdherenceLogs[index] = existingLog.copyWith(
-            status: status,
-            takenTime: status == LogStatus.taken ? TimeOfDay.now() : null,
-            snoozeCount: incrementSnooze
-                ? existingLog.snoozeCount + 1
-                : existingLog.snoozeCount,
-          );
-        }
-      } else {
-        final newLog = AdherenceLog(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          medicationId: task.medication.id,
-          userId: task.medication.userId,
-          date: _selectedDate,
-          scheduledTime: task.scheduledTime,
-          takenTime: status == LogStatus.taken ? TimeOfDay.now() : null,
-          status: status,
-          snoozeCount: incrementSnooze ? 1 : 0,
-        );
-        mockAdherenceLogs.add(newLog);
-      }
-    });
+  Future<void> _handleSkipTask(DailyTask task) async {
+    await _logService.logMissed(
+      medicationId: task.medication.id,
+      userId: task.medication.userId,
+      scheduledTime: task.scheduledTime,
+      date: _selectedDate,
+    );
   }
 
   @override
@@ -182,19 +173,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ? mockUsers.firstWhereOrNull((u) => u.id == messageData.caregiverId)
         : null;
     final caregiverName = caregiverUser?.name ?? 'Caregiver';
-
-    // build today's tasks
-    List<DailyTask> todayTasks = _generateTasksForDate(_selectedDate);
-
-    // calculate today's adherence summary
-    // knt use overal patient adherence stats cuz might chg date
-    int total = todayTasks.length;
-    int taken = todayTasks
-        .where((task) => task.log?.status == LogStatus.taken)
-        .length;
-    int missed = todayTasks
-        .where((task) => task.log?.status == LogStatus.missed)
-        .length;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -281,98 +259,137 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
 
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(
-              height: 16,
-            ), // space cuz body directly touches edge of app bar
-            // date selector
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: DateSelector(
-                selectedMonth: _selectedMonth,
-                selectedDate: _selectedDate,
-                onDateChanged: (DateTime newDate) {
-                  setState(() {
-                    _selectedDate = newDate;
-                  });
-                },
-              ),
-            ),
-            const SizedBox(height: 24),
+      body: StreamBuilder<List<Medication>>(
+        stream: _medService.streamMedications(_uid),
+        builder: (context, medSnap) {
+          return StreamBuilder<List<AdherenceLog>>(
+            stream: _logService.streamLogsForDate(_uid, _selectedDate),
+            builder: (context, logSnap) {
+              // wait for the first medication load
+              if (medSnap.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-            // summary cards
-            SummaryCards(total: total, taken: taken, missed: missed),
+              final medications = medSnap.data ?? [];
+              final logs = logSnap.data ?? [];
 
-            // message of the day
-            if (messageData != null) ...[
-              Container(
-                margin: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 20,
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColours.primaryPink,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
+              // build today's tasks from LIVE data
+              final todayTasks = _generateTasksForDate(
+                _selectedDate,
+                medications,
+                logs,
+              );
 
-                child: Row(
+              // calculate today's adherence summary
+              // knt use overal patient adherence stats cuz might chg date
+              final total = todayTasks.length;
+              final taken = todayTasks
+                  .where((t) => t.log?.status == LogStatus.taken)
+                  .length;
+              final missed = todayTasks
+                  .where((t) => t.log?.status == LogStatus.missed)
+                  .length;
+
+              return SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.favorite, color: Colors.white, size: 18),
-                    const SizedBox(width: 12),
-
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            messageData.message,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '$caregiverName · $formattedTime',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.7),
-                              fontSize: 10,
-                            ),
-                          ),
-                        ],
+                    const SizedBox(
+                      height: 16,
+                    ), // space cuz body directly touches edge of app bar
+                    // date selector
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: DateSelector(
+                        selectedMonth: _selectedMonth,
+                        selectedDate: _selectedDate,
+                        onDateChanged: (DateTime newDate) {
+                          setState(() {
+                            _selectedDate = newDate;
+                          });
+                        },
                       ),
                     ),
+                    const SizedBox(height: 24),
+
+                    // summary cards
+                    SummaryCards(total: total, taken: taken, missed: missed),
+
+                    // message of the day
+                    if (messageData != null) ...[
+                      Container(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 20,
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColours.primaryPink,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.08),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.favorite,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 12),
+
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    messageData.message,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '$caregiverName · $formattedTime',
+                                    style: TextStyle(
+                                      color: Colors.white.withOpacity(0.7),
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ] else ...[
+                      const SizedBox(height: 8),
+                    ],
+
+                    // medication list
+                    MedicationList(
+                      todayTasks: todayTasks,
+                      onTaken: _handleTakeTask,
+                      onSnooze: _handleSnoozeTask,
+                      onSkip: _handleSkipTask,
+                    ),
                   ],
                 ),
-              ),
-            ] else ...[
-              const SizedBox(height: 8),
-            ],
-
-            // medication list
-            MedicationList(
-              todayTasks: todayTasks,
-              onTaken: _handleTakeTask,
-              onSnooze: _handleSnoozeTask,
-              onSkip: _handleSkipTask,
-            ),
-          ],
-        ),
+              );
+            },
+          );
+        },
       ),
     );
   }

@@ -60,9 +60,55 @@ class Medication {
   int get timesPerDay => scheduledTimes.length;
 
   String get frequencyDisplay => frequencyType.toDisplayString(
-        selectedDays: selectedDays,
-        intervalDays: intervalDays,
-      );
+    selectedDays: selectedDays,
+    intervalDays: intervalDays,
+  );
+
+  Medication copyWith({
+    String? id,
+    String? userId,
+    String? name,
+    MedicationType? type,
+    String? imagePath,
+    int? quantity,
+    double? dosageAmount,
+    String? dosageUnit,
+    FrequencyType? frequencyType,
+    List<int>? selectedDays,
+    int? intervalDays,
+    int? strengthValue,
+    String? strengthUnit,
+    List<TimeOfDay>? scheduledTimes,
+    IntakeInstruction? intakeInstruction,
+    DateTime? treatmentStartDate,
+    DateTime? treatmentEndDate,
+    DateTime? expiryDate,
+    String? aiSummary,
+    List<String>? sideEffects,
+  }) {
+    return Medication(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      name: name ?? this.name,
+      type: type ?? this.type,
+      imagePath: imagePath ?? this.imagePath,
+      quantity: quantity ?? this.quantity,
+      dosageAmount: dosageAmount ?? this.dosageAmount,
+      dosageUnit: dosageUnit ?? this.dosageUnit,
+      frequencyType: frequencyType ?? this.frequencyType,
+      selectedDays: selectedDays ?? this.selectedDays,
+      intervalDays: intervalDays ?? this.intervalDays,
+      strengthValue: strengthValue ?? this.strengthValue,
+      strengthUnit: strengthUnit ?? this.strengthUnit,
+      scheduledTimes: scheduledTimes ?? this.scheduledTimes,
+      intakeInstruction: intakeInstruction ?? this.intakeInstruction,
+      treatmentStartDate: treatmentStartDate ?? this.treatmentStartDate,
+      treatmentEndDate: treatmentEndDate ?? this.treatmentEndDate,
+      expiryDate: expiryDate ?? this.expiryDate,
+      aiSummary: aiSummary ?? this.aiSummary,
+      sideEffects: sideEffects ?? this.sideEffects,
+    );
+  }
 
   // ------------ Firestore serialisation ------------
   static int _timeToInt(TimeOfDay t) => t.hour * 60 + t.minute; // to minutes
@@ -114,22 +160,28 @@ class Medication {
       id: documentId,
       userId: map['userId'] as String,
       name: map['name'] as String,
-      type: MedicationType.values.byName( // string -> enum
+      type: MedicationType.values.byName(
+        // string -> enum
         map['type'] as String,
-      ), 
+      ),
       imagePath: map['imagePath'] as String?,
 
       quantity: map['quantity'] as int,
-      dosageAmount: (map['dosageAmount'] as num).toDouble(), // Firestore may store a whole num (e.g., 5) as an int, so read as num then convert to double
+      dosageAmount: (map['dosageAmount'] as num)
+          .toDouble(), // Firestore may store a whole num (e.g., 5) as an int, so read as num then convert to double
       dosageUnit: map['dosageUnit'] as String,
-      frequencyType: FrequencyType.values.byName( 
+      frequencyType: FrequencyType.values.byName(
         map['frequencyType'] as String,
       ),
 
       // List<int> -> List<TimeOfDay>
-      selectedDays: (map['selectedDays'] as List<dynamic>?) // dynamic cuz originally list of ints, then bcome list of timeofday
-          ?.map((e) => e as int)
-          .toList(),
+      selectedDays:
+          (map['selectedDays']
+                  as List<
+                    dynamic
+                  >?) // dynamic cuz originally list of ints, then bcome list of timeofday
+              ?.map((e) => e as int)
+              .toList(),
       intervalDays: map['intervalDays'] as int?,
 
       strengthValue: map['strengthValue'] as int?,
@@ -137,12 +189,13 @@ class Medication {
 
       scheduledTimes: (map['scheduledTimes'] as List<dynamic>)
           .map((e) => _intToTime(e as int))
-          .toList(), 
+          .toList(),
       intakeInstruction: IntakeInstruction.values.byName(
         map['intakeInstruction'] as String,
       ),
 
-      treatmentStartDate: (map['treatmentStartDate'] as Timestamp).toDate(), // timestamp -? datetime
+      treatmentStartDate: (map['treatmentStartDate'] as Timestamp)
+          .toDate(), // timestamp -? datetime
       treatmentEndDate: (map['treatmentEndDate'] as Timestamp?)?.toDate(),
       expiryDate: (map['expiryDate'] as Timestamp?)?.toDate(),
       aiSummary: map['aiSummary'] as String?,

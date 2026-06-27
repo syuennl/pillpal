@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import '../widgets/history/history_header.dart';
 import '../widgets/history/history_record_group.dart';
 import '../widgets/history/history_record_card.dart';
+
 import '../utils/app_colours.dart';
 import '../models/adherence_log.dart';
 import '../view_models/history_group.dart';
+
 import '../services/history_service.dart';
 
 class HistoryScreen extends StatefulWidget {

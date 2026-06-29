@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
@@ -214,21 +215,48 @@ class MedicationDetailsScreen extends StatelessWidget {
                 child: Column(
                   children: [
                     // image
-                    Container(
-                      height: 200,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      child: const Center(
-                        child: Icon(
-                          Icons.image_outlined,
-                          size: 48,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ),
+                    med.imagePath != null && med.imagePath!.isNotEmpty
+                        ? ClipRRect(
+                            // image
+                            borderRadius: BorderRadius.circular(24),
+                            child: Image.file(
+                              File(med.imagePath!),
+                              height: 200,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                height: 200,
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[300],
+                                  borderRadius: BorderRadius.circular(24),
+                                ),
+                                child: const Center(
+                                  child: Icon(
+                                    Icons.broken_image_outlined,
+                                    size: 48,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          )
+                        : Container(
+                            // placeholder
+                            height: 200,
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: Colors.grey[300],
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            child: const Center(
+                              child: Icon(
+                                Icons.image_outlined,
+                                size: 48,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ),
                     const SizedBox(height: 16),
 
                     // main info card

@@ -15,9 +15,9 @@ class SideEffectsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MedicationCard(
-      backgroundColor: AppColours.secondaryYellow,
+      backgroundColor: AppColours.secondaryOrange,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
+        padding: const EdgeInsets.symmetric(horizontal: 6),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -49,21 +49,22 @@ class SideEffectsCard extends StatelessWidget {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             '• ',
                             style: TextStyle(
                               fontSize: 14,
-                              color: Colors.black87,
+                              color: Colors.grey[800],
                               fontWeight: FontWeight.bold,
                             ),
                           ),
+                          const SizedBox(width: 4),
 
                           Expanded(
                             child: Text(
                               effect,
                               style: TextStyle(
                                 fontSize: 14,
-                                color: Colors.grey[800],
+                                // color: Colors.grey[800],
                               ),
                             ),
                           ),
@@ -73,14 +74,39 @@ class SideEffectsCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
 
-                  Text(
-                    'Contact your healthcare provider if you experience severe side effects.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                      height: 1.5,
-                    ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    spacing: 8,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2.0),
+                        child: Icon(
+                          Icons.warning_amber_rounded,
+                          color: Colors.grey[600],
+                          size: 12,
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          'AI-generated side effects may contain inaccuracies. \nContact your healthcare provider if you experience severe side effects.',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey[600],
+                            height: 1.5,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
+
+                  // Text(
+                  //   'Contact your healthcare provider if you experience severe side effects.',
+                  //   style: TextStyle(
+                  //     fontSize: 12,
+                  //     color: Colors.grey[600],
+                  //     height: 1.5,
+                  //   ),
+                  // ),
                   const SizedBox(height: 20),
 
                   // medication diary button

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:collection/collection.dart';
 import 'package:pillpal/models/medication.dart';
 import 'package:pillpal/models/enums/medication_enums.dart';
 import 'package:pillpal/utils/app_colours.dart';
@@ -6,18 +7,26 @@ import 'package:pillpal/utils/app_colours.dart';
 import 'package:pillpal/services/auth_service.dart';
 import 'package:pillpal/services/medication_service.dart';
 import 'package:pillpal/services/notification_service.dart';
+import 'package:pillpal/services/ocr_service.dart';
 
 import 'form_components/medication_type_selector.dart';
 import 'form_components/frequency_type_selector.dart';
 import 'form_components/days_selector.dart';
 import 'form_components/intake_instruction_selector.dart';
 import 'form_components/form_text_field.dart';
+import 'form_components/medication_image_picker.dart';
 
 class MedicationForm extends StatefulWidget {
   final VoidCallback onCancel;
-  final Medication? medication;
+  final Medication? medication; // for editing
+  final ScannedMedication? scannedInfo; // for adding
 
-  const MedicationForm({super.key, required this.onCancel, this.medication});
+  const MedicationForm({
+    super.key,
+    required this.onCancel,
+    this.medication,
+    this.scannedInfo,
+  });
 
   bool get isEditing => medication != null;
 
@@ -34,13 +43,15 @@ class _MedicationFormState extends State<MedicationForm> {
   late final TextEditingController _quantityController;
   late final TextEditingController _scheduledTimesController;
   late final TextEditingController _expiryDateController;
-  late final TextEditingController _intervalDaysController;
+  // late final TextEditingController _intervalDaysController;
 
-  late MedicationType _selectedType;
-  late FrequencyType _selectedFrequency;
-  late IntakeInstruction _selectedInstruction;
-  late final Set<int> _selectedDays;
+  MedicationType _selectedType = MedicationType.pill;
+  String? _imagePath;
+  FrequencyType _selectedFrequency = FrequencyType.daily;
+  IntakeInstruction _selectedInstruction = IntakeInstruction.anytime;
+  Set<int> _selectedDays = {};
   String? _aiSummary;
+  List<String>? _sideEffects;
 
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
@@ -48,73 +59,106 @@ class _MedicationFormState extends State<MedicationForm> {
   @override
   void initState() {
     super.initState();
-    final med = widget.medication;
 
-    String fmtDate(DateTime d) =>
-        '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+    // create controllers
+    _nameController = TextEditingController();
+    _dosageAmountController = TextEditingController();
+    _dosageUnitController = TextEditingController();
+    _strengthValueController = TextEditingController();
+    _strengthUnitController = TextEditingController();
+    _quantityController = TextEditingController();
+    _scheduledTimesController = TextEditingController();
+    _expiryDateController = TextEditingController();
 
-    final String initialName;
-    final String initialDosageAmount;
-    final String initialDosageUnit;
-    final String initialStrengthValue;
-    final String initialStrengthUnit;
-    final String initialQuantity;
-    final String initialScheduledTimes;
-    final String initialExpiryDate;
-    final String initialIntervalDays;
-
-    if (med != null) {
-      initialName = med.name;
-      initialDosageAmount = med.dosageAmount.toString();
-      initialDosageUnit = med.dosageUnit;
-      initialStrengthValue = med.strengthValue?.toString() ?? '20';
-      initialStrengthUnit = med.strengthUnit ?? 'mg';
-      initialQuantity = med.quantity.toString();
-      initialScheduledTimes = med.scheduledTimes
-          .map((t) {
-            final hour = t.hour.toString().padLeft(2, '0');
-            final minute = t.minute.toString().padLeft(2, '0');
-            return '$hour:$minute';
-          })
-          .join(', ');
-      initialExpiryDate = med.expiryDate != null
-          ? fmtDate(med.expiryDate!)
-          : '15/08/2027';
-      initialIntervalDays = med.intervalDays?.toString() ?? '';
-      _aiSummary = med.aiSummary;
-    } else {
-      initialName = 'Simvastatin';
-      initialDosageAmount = '1';
-      initialDosageUnit = 'tablet';
-      initialStrengthValue = '20';
-      initialStrengthUnit = 'mg';
-      initialQuantity = '30';
-      initialScheduledTimes = '21:00';
-      initialExpiryDate = '15/08/2027';
-      initialIntervalDays = '';
-      _aiSummary =
-          'Simvastatin is a statin medication used to lower cholesterol and reduce the risk of heart disease. It works by blocking an enzyme in the liver that produces cholesterol. Best taken in the evening as the body produces more cholesterol at night. Common side effects include muscle pain and digestive issues.';
+    // fill the controllers and overwrite defaults if prefilling
+    if (widget.isEditing) {
+      _prefillFromMedication(widget.medication!); // existing edit prefill
+    } else if (widget.scannedInfo != null) {
+      _prefillFromScan(widget.scannedInfo!); // OCR prefill
     }
+    // if neither, fields stay empty (manual entry)
+  }
 
-    _nameController = TextEditingController(text: initialName);
-    _dosageAmountController = TextEditingController(text: initialDosageAmount);
-    _dosageUnitController = TextEditingController(text: initialDosageUnit);
-    _strengthValueController = TextEditingController(
-      text: initialStrengthValue,
-    );
-    _strengthUnitController = TextEditingController(text: initialStrengthUnit);
-    _quantityController = TextEditingController(text: initialQuantity);
-    _scheduledTimesController = TextEditingController(
-      text: initialScheduledTimes,
-    );
-    _expiryDateController = TextEditingController(text: initialExpiryDate);
-    _intervalDaysController = TextEditingController(text: initialIntervalDays);
+  // generic enum parser
+  T _parseEnum<T>(List<T> values, String? raw, T fallback) {
+    if (raw == null) return fallback;
+    return values.firstWhereOrNull((e) => (e as Enum).name == raw) ?? fallback;
+    // fallbacks important for prefilled info from ai (prevent bad ai strings)
+  }
 
-    _selectedType = med?.type ?? MedicationType.pill;
-    _selectedFrequency = med?.frequencyType ?? FrequencyType.daily;
-    _selectedInstruction =
-        med?.intakeInstruction ?? IntakeInstruction.afterFood;
-    _selectedDays = {...?med?.selectedDays};
+  String _formatScanDate(String? iso) {
+    if (iso == null) return '';
+    try {
+      final d = DateTime.parse(iso);
+      return '${d.day.toString().padLeft(2, '0')}/'
+          '${d.month.toString().padLeft(2, '0')}/${d.year}';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  void _prefillFromMedication(Medication med) {
+    _nameController.text = med.name;
+    _dosageAmountController.text = med.dosageAmount.toString();
+    _dosageUnitController.text = med.dosageUnit;
+    _strengthValueController.text = med.strengthValue?.toString() ?? '';
+    _strengthUnitController.text = med.strengthUnit ?? '';
+    _quantityController.text = med.quantity.toString();
+    _scheduledTimesController.text = med.scheduledTimes
+        .map(
+          (t) =>
+              '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}',
+        )
+        .join(', ');
+    _expiryDateController.text = med.expiryDate != null
+        ? _formatScanDate(med.expiryDate.toString())
+        : '';
+
+    _selectedType = med.type;
+    _imagePath = med.imagePath;
+    _selectedFrequency = med.frequencyType;
+    _selectedInstruction = med.intakeInstruction;
+    _selectedDays = med.selectedDays?.toSet() ?? {};
+    _aiSummary = med.aiSummary;
+    _sideEffects = med.sideEffects;
+  }
+
+  void _prefillFromScan(ScannedMedication s) {
+    // plain text fields
+    _nameController.text = s.name ?? '';
+    _dosageAmountController.text = s.dosageAmount?.toString() ?? '';
+    _dosageUnitController.text = s.dosageUnit ?? '';
+    _strengthValueController.text = s.strengthValue?.toString() ?? '';
+    _strengthUnitController.text = s.strengthUnit ?? '';
+    _quantityController.text = s.quantity?.toString() ?? '';
+    _scheduledTimesController.text = s.times?.join(', ') ?? '';
+    _expiryDateController.text = _formatScanDate(s.expiryDate);
+
+    // enum selections (string -> enum, with safe fallback)
+    _selectedType = _parseEnum(
+      MedicationType.values,
+      s.medicationType,
+      MedicationType.pill,
+    );
+    _selectedFrequency = _parseEnum(
+      FrequencyType.values,
+      s.frequencyType,
+      FrequencyType.daily,
+    );
+    _selectedInstruction = _parseEnum(
+      IntakeInstruction.values,
+      s.intakeInstruction,
+      IntakeInstruction.anytime,
+    );
+
+    // image
+    _imagePath = s.imagePath;
+
+    // AI-generated content carried through to the saved medication
+    // (store on temp fields your _handleSubmit already reads, OR keep them here
+    //  and include in the Medication you build on save)
+    _aiSummary = s.aiSummary;
+    _sideEffects = s.sideEffects;
   }
 
   @override
@@ -127,19 +171,28 @@ class _MedicationFormState extends State<MedicationForm> {
     _quantityController.dispose();
     _scheduledTimesController.dispose();
     _expiryDateController.dispose();
-    _intervalDaysController.dispose();
+    // _intervalDaysController.dispose();
     super.dispose();
   }
 
   List<TimeOfDay> _parseScheduledTimes(String text) {
     final times = <TimeOfDay>[];
 
-    if (text.isEmpty) return [const TimeOfDay(hour: 9, minute: 0)];
+    final parts = text
+        .split(',')
+        .map((p) => p.trim())
+        .where((p) => p.isNotEmpty)
+        .toList();
 
-    final parts = text.split(',');
+    if (parts.isEmpty) {
+      if (_selectedFrequency == FrequencyType.asNeeded) {
+        return [];
+      }
+      return [const TimeOfDay(hour: 9, minute: 0)];
+    }
+
     for (var part in parts) {
-      final trimmed = part.trim();
-      final timeParts = trimmed.split(':');
+      final timeParts = part.split(':');
       if (timeParts.length == 2) {
         // ensure there's 2 numbers, not inputs like '08' / 'morning'
         final hour = int.tryParse(timeParts[0]);
@@ -149,7 +202,14 @@ class _MedicationFormState extends State<MedicationForm> {
         }
       }
     }
-    return times.isNotEmpty ? times : [const TimeOfDay(hour: 9, minute: 0)];
+
+    if (times.isEmpty) {
+      if (_selectedFrequency == FrequencyType.asNeeded) {
+        return [];
+      }
+      return [const TimeOfDay(hour: 9, minute: 0)];
+    }
+    return times;
   }
 
   DateTime? _parseExpiryDate(String text) {
@@ -205,7 +265,6 @@ class _MedicationFormState extends State<MedicationForm> {
     setState(() => _isLoading = true);
 
     final name = _nameController.text.trim();
-
     final dosageAmount = double.tryParse(_dosageAmountController.text) ?? 1.0;
     final dosageUnit = _dosageUnitController.text.trim().isEmpty
         ? 'tablet'
@@ -213,11 +272,11 @@ class _MedicationFormState extends State<MedicationForm> {
 
     final strengthValue = int.tryParse(_strengthValueController.text);
     final strengthUnit = _strengthUnitController.text.trim().isEmpty
-        ? 'mg'
+        ? null
         : _strengthUnitController.text.trim();
 
     final quantity = int.tryParse(_quantityController.text) ?? 30;
-    final intervalDays = int.tryParse(_intervalDaysController.text);
+    // final intervalDays = int.tryParse(_intervalDaysController.text);
 
     final scheduledTimes = _parseScheduledTimes(_scheduledTimesController.text);
     final expiryDate = _parseExpiryDate(_expiryDateController.text);
@@ -232,12 +291,13 @@ class _MedicationFormState extends State<MedicationForm> {
           userId: widget.medication!.userId,
           name: name,
           type: _selectedType,
+          imagePath: _imagePath,
           quantity: quantity,
           dosageAmount: dosageAmount,
           dosageUnit: dosageUnit,
           frequencyType: _selectedFrequency,
           selectedDays: _selectedDays.toList(),
-          intervalDays: intervalDays,
+          // intervalDays: intervalDays,
           strengthValue: strengthValue,
           strengthUnit: strengthUnit,
           scheduledTimes: scheduledTimes,
@@ -277,21 +337,21 @@ class _MedicationFormState extends State<MedicationForm> {
           userId: uid,
           name: name,
           type: _selectedType,
+          imagePath: _imagePath,
           quantity: quantity,
           dosageAmount: dosageAmount,
           dosageUnit: dosageUnit,
           frequencyType: _selectedFrequency,
           selectedDays: _selectedDays.toList(),
-          intervalDays: intervalDays,
+          // intervalDays: intervalDays,
           strengthValue: strengthValue,
           strengthUnit: strengthUnit,
           scheduledTimes: scheduledTimes,
           intakeInstruction: _selectedInstruction,
           treatmentStartDate: DateTime.now(),
           expiryDate: expiryDate,
-          aiSummary:
-              'This medication is used to treat your symptoms. Please follow dosage instructions carefully.',
-          sideEffects: ['Drowsiness', 'Mild nausea'],
+          aiSummary: _aiSummary ?? '',
+          sideEffects: _sideEffects ?? [],
         );
 
         // save new med
@@ -319,7 +379,9 @@ class _MedicationFormState extends State<MedicationForm> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error: ${e.toString()}'), // TODO: swap to friendlier message?
+          content: Text(
+            'Error: ${e.toString()}',
+          ), // TODO: swap to friendlier message?
           backgroundColor: AppColours.primaryRed,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
@@ -386,36 +448,42 @@ class _MedicationFormState extends State<MedicationForm> {
 
               // picture
               _buildLabel('Picture of Pill (Optional)'),
-              Container(
-                padding: const EdgeInsets.all(32),
-                decoration: BoxDecoration(
-                  color: AppColours.textboxGrey,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Colors.grey[200]!,
-                    style: BorderStyle.solid,
-                  ), // TODO: a dashed package can be added later
-                ),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.file_upload_outlined,
-                      size: 32,
-                      color: Colors.grey[400],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Click to upload a photo',
-                      style: TextStyle(color: Colors.grey[700], fontSize: 14),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'PNG, JPG up to 10MB',
-                      style: TextStyle(color: Colors.grey[500], fontSize: 12),
-                    ),
-                  ],
-                ),
+              MedicationImagePicker(
+                imagePath: _imagePath,
+                onImageChanged: (newPath) {
+                  setState(() => _imagePath = newPath);
+                },
               ),
+              // Container(
+              //   padding: const EdgeInsets.all(32),
+              //   decoration: BoxDecoration(
+              //     color: AppColours.textboxGrey,
+              //     borderRadius: BorderRadius.circular(12),
+              //     border: Border.all(
+              //       color: Colors.grey[200]!,
+              //       style: BorderStyle.solid,
+              //     ), // TODO: a dashed package can be added later
+              //   ),
+              //   child: Column(
+              //     children: [
+              //       Icon(
+              //         Icons.file_upload_outlined,
+              //         size: 32,
+              //         color: Colors.grey[400],
+              //       ),
+              //       const SizedBox(height: 8),
+              //       Text(
+              //         'Click to upload a photo',
+              //         style: TextStyle(color: Colors.grey[700], fontSize: 14),
+              //       ),
+              //       const SizedBox(height: 4),
+              //       Text(
+              //         'PNG, JPG up to 10MB',
+              //         style: TextStyle(color: Colors.grey[500], fontSize: 12),
+              //       ),
+              //     ],
+              //   ),
+              // ),
               SizedBox(height: 10),
 
               // dosage
@@ -466,8 +534,17 @@ class _MedicationFormState extends State<MedicationForm> {
                         FormTextField(
                           controller: _strengthValueController,
                           keyboardType: TextInputType.number,
-                          validator: (v) =>
-                              _validateNumberFields(v, isRequired: false),
+                          validator: (v) {
+                            final hasValue = v != null && v.trim().isNotEmpty;
+                            final hasUnit = _strengthUnitController.text
+                                .trim()
+                                .isNotEmpty;
+                            // if unit is filled but value isn't, value becomes required
+                            if (hasUnit && !hasValue) return 'Enter strength';
+                            if (hasValue && int.tryParse(v) == null)
+                              return 'Enter a number';
+                            return null; // both empty = fine
+                          },
                         ),
                       ],
                     ),
@@ -478,7 +555,19 @@ class _MedicationFormState extends State<MedicationForm> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildSubText('Unit'),
-                        FormTextField(controller: _strengthUnitController),
+                        FormTextField(
+                          controller: _strengthUnitController,
+                          validator: (v) {
+                            final hasUnit = v != null && v.trim().isNotEmpty;
+                            final hasValue = _strengthValueController.text
+                                .trim()
+                                .isNotEmpty;
+                            // if value is filled but unit isn't, unit becomes required
+                            if (hasValue && !hasUnit)
+                              return 'Enter unit (e.g. mg)';
+                            return null; // both empty = fine
+                          },
+                        ),
                       ],
                     ),
                   ),
@@ -507,7 +596,7 @@ class _MedicationFormState extends State<MedicationForm> {
                   setState(() {
                     _selectedFrequency = newFreq;
                     _selectedDays.clear();
-                    _intervalDaysController.clear();
+                    // _intervalDaysController.clear();
                   });
                 },
               ),
@@ -577,12 +666,38 @@ class _MedicationFormState extends State<MedicationForm> {
               FormTextField(
                 controller: _scheduledTimesController,
                 validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Required';
-                  for (final p in v.split(',')) {
-                    final t = p.trim().split(':');
-                    if (t.length != 2 ||
-                        int.tryParse(t[0]) == null ||
-                        int.tryParse(t[1]) == null) {
+                  if (v == null || v.trim().isEmpty) {
+                    if (_selectedFrequency == FrequencyType.asNeeded) {
+                      return null;
+                    }
+                    return 'Required';
+                  }
+                  final parts = v
+                      .split(',')
+                      .map((p) => p.trim())
+                      .where((p) => p.isNotEmpty)
+                      .toList();
+
+                  if (parts.isEmpty) {
+                    if (_selectedFrequency == FrequencyType.asNeeded) {
+                      return null;
+                    }
+                    return 'Required';
+                  }
+
+                  for (final p in parts) {
+                    final t = p.split(':');
+                    if (t.length != 2) {
+                      return 'Use HH:MM (e.g. 08:00, 21:00)';
+                    }
+                    final hour = int.tryParse(t[0]);
+                    final minute = int.tryParse(t[1]);
+                    if (hour == null ||
+                        minute == null ||
+                        hour < 0 ||
+                        hour > 23 ||
+                        minute < 0 ||
+                        minute > 59) {
                       return 'Use HH:MM (e.g. 08:00, 21:00)';
                     }
                   }
@@ -645,9 +760,114 @@ class _MedicationFormState extends State<MedicationForm> {
                     color: AppColours.secondaryGreen.withOpacity(0.4),
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: Text(
-                    _aiSummary!,
-                    style: const TextStyle(fontSize: 14, height: 1.6),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _aiSummary!,
+                        style: const TextStyle(fontSize: 14, height: 1.6),
+                      ),
+                      SizedBox(height: 10),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        spacing: 8,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2.0),
+                            child: Icon(
+                              Icons.warning_amber_rounded,
+                              color: Colors.grey[600],
+                              size: 12,
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              'AI-generated summary may contain inaccuracies. \nAlways follow the guidance of your doctor or pharmacist.',
+                              style: TextStyle(
+                                fontSize: 10,
+                                height: 1.5,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
+              // side effects
+              if (_sideEffects != null && _sideEffects!.isNotEmpty) ...[
+                const SizedBox(height: 24),
+                _buildLabel('Possible Side Effects'),
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: AppColours.secondaryYellow,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // side effects list
+                      ..._sideEffects!.map(
+                        (effect) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12.0),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                '• ',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.black87,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+
+                              Expanded(
+                                child: Text(
+                                  effect,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[800],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // warning text
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        spacing: 8,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2.0),
+                            child: Icon(
+                              Icons.warning_amber_rounded,
+                              color: Colors.grey[600],
+                              size: 12,
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              'AI-generated side effects may contain inaccuracies. \nContact your healthcare provider if you experience severe side effects.',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.grey[600],
+                                height: 1.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ],

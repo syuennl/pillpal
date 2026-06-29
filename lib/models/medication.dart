@@ -16,7 +16,7 @@ class Medication {
 
   final FrequencyType frequencyType;
   final List<int>? selectedDays; // e.g. [1, 2, 4] for Mon, Tue, Thu
-  final int? intervalDays; // e.g. 3 for "Every 3 days"
+  // final int? intervalDays; // e.g. 3 for "Every 3 days"
 
   final int? strengthValue; // strength of pill per intake (mg, etc.)
   final String? strengthUnit;
@@ -41,7 +41,7 @@ class Medication {
     required this.dosageUnit,
     required this.frequencyType,
     this.selectedDays,
-    this.intervalDays,
+    // this.intervalDays,
     this.strengthValue,
     this.strengthUnit,
     required this.scheduledTimes,
@@ -61,7 +61,7 @@ class Medication {
 
   String get frequencyDisplay => frequencyType.toDisplayString(
     selectedDays: selectedDays,
-    intervalDays: intervalDays,
+    // intervalDays: intervalDays,
   );
 
   Medication copyWith({
@@ -75,7 +75,7 @@ class Medication {
     String? dosageUnit,
     FrequencyType? frequencyType,
     List<int>? selectedDays,
-    int? intervalDays,
+    // int? intervalDays,
     int? strengthValue,
     String? strengthUnit,
     List<TimeOfDay>? scheduledTimes,
@@ -97,7 +97,7 @@ class Medication {
       dosageUnit: dosageUnit ?? this.dosageUnit,
       frequencyType: frequencyType ?? this.frequencyType,
       selectedDays: selectedDays ?? this.selectedDays,
-      intervalDays: intervalDays ?? this.intervalDays,
+      // intervalDays: intervalDays ?? this.intervalDays,
       strengthValue: strengthValue ?? this.strengthValue,
       strengthUnit: strengthUnit ?? this.strengthUnit,
       scheduledTimes: scheduledTimes ?? this.scheduledTimes,
@@ -131,7 +131,7 @@ class Medication {
       'frequencyType': frequencyType.name,
 
       'selectedDays': selectedDays,
-      'intervalDays': intervalDays,
+      // 'intervalDays': intervalDays,
 
       'strengthValue': strengthValue,
       'strengthUnit': strengthUnit,
@@ -182,7 +182,7 @@ class Medication {
                   >?) // dynamic cuz originally list of ints, then bcome list of timeofday
               ?.map((e) => e as int)
               .toList(),
-      intervalDays: map['intervalDays'] as int?,
+      // intervalDays: map['intervalDays'] as int?,
 
       strengthValue: map['strengthValue'] as int?,
       strengthUnit: map['strengthUnit'] as String?,

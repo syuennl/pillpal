@@ -4,7 +4,7 @@ import '../models/medication.dart';
 class MedicationService {
   final _db = FirebaseFirestore.instance;
 
-  // shortcut to the medications collection.
+  // shortcut to the medications collection
   CollectionReference<Map<String, dynamic>> get _medications =>
       _db.collection('medications');
 

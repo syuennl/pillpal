@@ -7,11 +7,7 @@ class AuthService {
 
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
-  Future<void> register(
-    String email,
-    String password,
-    String name,
-  ) async {
+  Future<void> register(String email, String password, String name) async {
     // create login credentials
     final cred = await _auth.createUserWithEmailAndPassword(
       email: email,

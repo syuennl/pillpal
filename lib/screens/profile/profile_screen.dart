@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:pillpal/utils/app_colours.dart';
-import '../../../mock/user_profile.dart';
+
 import '../../../models/profile.dart';
+
 import '../../widgets/profile/info_card_shell.dart';
 import '../../widgets/profile/profile_content.dart';
 import '../../widgets/profile/medical_content.dart';
@@ -10,6 +12,10 @@ import '../../widgets/profile/settings_content.dart';
 import '../../widgets/profile/profile_avatar.dart';
 import '../../widgets/common/custom_app_bar.dart';
 import '../login/landing_screen.dart';
+
+import '../../services/auth_service.dart';
+import '../../services/fcm_service.dart';
+import '../../services/profile_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -33,40 +39,77 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late TextEditingController _allergiesController;
   late TextEditingController _medicalConditionsController;
 
-  late TimeOfDay _quietStartTime;
+  late TimeOfDay
+  _quietStartTime; // holds the data during form filling, like ctrller
   late TimeOfDay _quietEndTime;
 
   final _formKey = GlobalKey<FormState>();
+  final _profileService = ProfileService();
+  final _uid = AuthService().currentUser!.uid;
+  final _db = FirebaseFirestore.instance; // for user doc (name/phone)
+  bool _isDataLoading = true;
+
+  // saved snapshots
+  String _userName = ''; // saved snapshot to be returned when editing cancelled
+  String _userPhone = '';
+  Profile? _profile; // current loaded profile
 
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: mockUsers[0].name);
-    _phoneController = TextEditingController(text: mockUsers[0].phone);
-    _dobController = TextEditingController(
-      text: mockProfiles[0].birthDate.toString().substring(0, 10),
-    );
-    _genderController = TextEditingController(
-      text: mockProfiles[0].gender.displayName,
-    );
-    _emergencyNameController = TextEditingController(
-      text: mockProfiles[0].emergencyContactName ?? '',
-    );
-    _emergencyPhoneController = TextEditingController(
-      text: mockProfiles[0].emergencyContactPhone ?? '',
-    );
+    _nameController = TextEditingController();
+    _phoneController = TextEditingController();
+    _dobController = TextEditingController();
+    _genderController = TextEditingController();
+    _emergencyNameController = TextEditingController();
+    _emergencyPhoneController = TextEditingController();
+    _allergiesController = TextEditingController();
+    _medicalConditionsController = TextEditingController();
 
-    _allergiesController = TextEditingController(
-      text: mockProfiles[0].allergies?.join(', ') ?? '',
-    );
-    _medicalConditionsController = TextEditingController(
-      text: mockProfiles[0].medicalConditions?.join(', ') ?? '',
-    );
+    _quietStartTime = const TimeOfDay(hour: 22, minute: 0);
+    _quietEndTime = const TimeOfDay(hour: 7, minute: 0);
 
-    _quietStartTime =
-        mockProfiles[0].quietStartTime ?? const TimeOfDay(hour: 22, minute: 0);
-    _quietEndTime =
-        mockProfiles[0].quietEndTime ?? const TimeOfDay(hour: 7, minute: 0);
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    // name + phone from user doc
+    final userDoc = await _db.collection('users').doc(_uid).get();
+    final userData = userDoc.data() ?? {};
+
+    final profile = await _profileService.getProfile(_uid);
+
+    if (!mounted) return;
+    setState(() {
+      _profile = profile;
+
+      _userName = userData['name'] ?? '-';
+      _userPhone = userData['phone'] ?? '-';
+
+      _resetForm();
+
+      _isDataLoading = false;
+    });
+  }
+
+  // (re)populate ctrlers w/ data during init and when edit cancels (falls back to saved snapshots)
+  void _resetForm() {
+    _nameController.text = _userName;
+    _phoneController.text = _userPhone;
+
+    if (_profile != null) {
+      _dobController.text = _profile!.birthDate.toString().substring(0, 10);
+      _genderController.text = _profile!.gender.displayName;
+      _emergencyNameController.text = _profile!.emergencyContactName ?? '';
+      _emergencyPhoneController.text = _profile!.emergencyContactPhone ?? '';
+      _allergiesController.text = _profile!.allergies?.join(', ') ?? '';
+      _medicalConditionsController.text =
+          _profile!.medicalConditions?.join(', ') ?? '';
+      _quietStartTime =
+          _profile!.quietStartTime ?? const TimeOfDay(hour: 22, minute: 0);
+      _quietEndTime =
+          _profile!.quietEndTime ?? const TimeOfDay(hour: 7, minute: 0);
+    }
   }
 
   @override
@@ -89,79 +132,109 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return GenderType.preferNotToSay;
   }
 
-  void _savePersonalInfo() {
+  void _savePersonalInfo() async {
     // if true/!false (validation fails returns false), then return without saving
     // ! = bang operator, asserts that the value is not null
     // .validate() = runs validator func we put in the input fields, return false if error
     if (!_formKey.currentState!.validate()) return;
 
-    // if false/!true (validation success returns true), copy values into model
+    // name + phone (user doc)
+    await _db.collection('users').doc(_uid).set({
+      'name': _nameController.text.trim(),
+      'phone': _phoneController.text.trim(),
+    }, SetOptions(merge: true));
+
+    // the rest
+    final updatedPersonalInfo = (_profile ?? _blankProfile()).copyWith(
+      birthDate: DateTime.tryParse(_dobController.text) ?? _profile!.birthDate,
+      gender: _parseGender(_genderController.text),
+      emergencyContactName: _emergencyNameController.text.trim().isEmpty
+          ? null
+          : _emergencyNameController.text.trim(),
+      emergencyContactPhone: _emergencyPhoneController.text.trim().isEmpty
+          ? null
+          : _emergencyPhoneController.text.trim(),
+    );
+    await _profileService.saveProfile(updatedPersonalInfo);
+
+    if (!mounted) return;
+
     setState(() {
-      mockUsers[0] = mockUsers[0].copyWith(
-        name: _nameController.text,
-        phone: _phoneController.text,
-      );
-
-      mockProfiles[0] = mockProfiles[0].copyWith(
-        birthDate:
-            DateTime.tryParse(_dobController.text) ?? mockProfiles[0].birthDate,
-        gender: _parseGender(_genderController.text),
-        emergencyContactName: _emergencyNameController.text.trim().isEmpty
-            ? null
-            : _emergencyNameController.text.trim(),
-        emergencyContactPhone: _emergencyPhoneController.text.trim().isEmpty
-            ? null
-            : _emergencyPhoneController.text.trim(),
-      );
-
+      _userName = _nameController.text.trim();
+      _userPhone = _phoneController.text.trim();
+      _profile = updatedPersonalInfo;
       _isPersonalEditing = false;
     });
   }
 
-  void _saveMedicalInfo() {
+  void _saveMedicalInfo() async {
+    final List<String> allergiesList = _allergiesController.text
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+
+    final List<String> medicalConditionsList = _medicalConditionsController.text
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+
+    final updatedMedicalInfo = (_profile ?? _blankProfile()).copyWith(
+      medicalConditions: medicalConditionsList,
+      allergies: allergiesList,
+    );
+
+    await _profileService.saveProfile(updatedMedicalInfo);
+
+    if (!mounted) return;
+
     setState(() {
-      final List<String> allergiesList = _allergiesController.text
-          .split(',')
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
-          .toList();
-
-      final List<String> medicalConditionsList = _medicalConditionsController
-          .text
-          .split(',')
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
-          .toList();
-
-      mockProfiles[0] = mockProfiles[0].copyWith(
-        medicalConditions: medicalConditionsList,
-        allergies: allergiesList,
-      );
-
+      _profile = updatedMedicalInfo;
       _isMedicalEditing = false;
     });
   }
 
-  void _saveQuietHours() {
+  void _saveQuietHours() async {
+    final updatedQuietHours = (_profile ?? _blankProfile()).copyWith(
+      quietStartTime: _quietStartTime,
+      quietEndTime: _quietEndTime,
+    );
+
+    await _profileService.saveProfile(updatedQuietHours);
+
+    if (!mounted) return;
+
     setState(() {
-      mockProfiles[0] = mockProfiles[0].copyWith(
-        quietStartTime: _quietStartTime,
-        quietEndTime: _quietEndTime,
-      );
+      _profile = updatedQuietHours;
       _isQuietHoursEditing = false;
     });
   }
 
+  // fallback when the user has no profile doc yet (first time)
+  // nid to have something to copywith to save profile
+  Profile _blankProfile() => Profile(
+    id: _uid,
+    userId: _uid,
+    birthDate: DateTime(2000),
+    gender: GenderType.preferNotToSay,
+  );
+
   @override
   Widget build(BuildContext context) {
+    if (_isDataLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    final profile = _profile;
+
     Map<String, String> personalInfoMap = {
-      'Full Name': mockUsers[0].name,
-      'Phone': mockUsers[0].phone?? '',
-      'Date of Birth': mockProfiles[0].birthDate.toString().substring(0, 10),
-      'Gender': mockProfiles[0].gender.displayName,
-      'Emergency Contact':
-          (mockProfiles[0].emergencyContactName?.isNotEmpty == true)
-          ? '${mockProfiles[0].emergencyContactName}: ${mockProfiles[0].emergencyContactPhone}'
+      'Full Name': _nameController.text,
+      'Phone': _phoneController.text,
+      'Date of Birth': profile?.birthDate.toString().substring(0, 10) ?? '-',
+      'Gender': profile?.gender.displayName ?? '-',
+      'Emergency Contact': (profile?.emergencyContactName?.isNotEmpty == true)
+          ? '${profile!.emergencyContactName}: ${profile.emergencyContactPhone}'
           : '-',
     };
 
@@ -176,26 +249,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               // pfp
               ProfileAvatar(
-                imageUrl: mockProfiles[0].profileImagePath,
-                onImageChanged: (newPath) {
-                  setState(() {
-                    if (newPath == null) {
-                      mockProfiles[0] = mockProfiles[0].copyWith(
-                        clearProfileImage: true,
-                      );
-                    } else {
-                      mockProfiles[0] = mockProfiles[0].copyWith(
-                        profileImagePath: newPath,
-                      );
-                    }
-                  });
+                imageUrl: profile?.profileImagePath,
+                onImageChanged: (newPath) async {
+                  final updatedPfp = (_profile ?? _blankProfile()).copyWith(
+                    profileImagePath: newPath,
+                    clearProfileImage: newPath == null,
+                  );
+
+                  await _profileService.saveProfile(updatedPfp);
+                  if (mounted) setState(() => _profile = updatedPfp);
                 },
               ),
               SizedBox(height: 16),
 
               // name
               Text(
-                mockUsers[0].name,
+                _nameController.text,
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
@@ -214,6 +283,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   });
                 },
                 onSaveTapped: _savePersonalInfo,
+                onCancelTapped: () {
+                  setState(() {
+                    _isPersonalEditing = false;
+                    _resetForm();
+                  });
+                },
                 content: ProfileContent(
                   isEditing: _isPersonalEditing,
                   formKey: _formKey,
@@ -239,10 +314,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   });
                 },
                 onSaveTapped: _saveMedicalInfo,
+                onCancelTapped: () {
+                  setState(() {
+                    _isMedicalEditing = false;
+                    _resetForm();
+                  });
+                },
                 content: MedicalContent(
                   isEditing: _isMedicalEditing,
-                  allergies: mockProfiles[0].allergies ?? [],
-                  medicalConditions: mockProfiles[0].medicalConditions ?? [],
+                  allergies: profile?.allergies ?? [],
+                  medicalConditions: profile?.medicalConditions ?? [],
                   allergiesController: _allergiesController,
                   medicalConditionsController: _medicalConditionsController,
                 ),
@@ -260,6 +341,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   });
                 },
                 onSaveTapped: _saveQuietHours,
+                onCancelTapped: () {
+                  setState(() {
+                    _isQuietHoursEditing = false;
+                    _resetForm();
+                  });
+                },
                 content: QuietHoursContent(
                   isEditing: _isQuietHoursEditing,
                   startTime: _quietStartTime,
@@ -290,7 +377,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {
+                  onPressed: () async {
+                    final uid = AuthService().currentUser?.uid;
+                    if (uid != null) {
+                      // clear FCM token
+                      await FcmService().clearToken(uid);
+                    }
+
+                    await AuthService().signOut();
+
+                    if (!context.mounted) return;
+
+                    // back to landing screen
                     Navigator.of(context).pushAndRemoveUntil(
                       MaterialPageRoute(
                         builder: (context) => const LandingScreen(),

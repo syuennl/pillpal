@@ -8,6 +8,7 @@ class InfoCardShell extends StatelessWidget {
   final bool isEditing;
   final VoidCallback? onEditTapped;
   final VoidCallback? onSaveTapped;
+  final VoidCallback? onCancelTapped;
 
   const InfoCardShell({
     super.key,
@@ -17,6 +18,7 @@ class InfoCardShell extends StatelessWidget {
     this.isEditing = false,
     this.onEditTapped,
     this.onSaveTapped,
+    this.onCancelTapped,
   });
 
   @override
@@ -52,19 +54,39 @@ class InfoCardShell extends StatelessWidget {
                   ),
                 ),
 
-                // edit or save btn
+                // edit, save, or cancel btn
                 if (hasTrailing)
-                  InkWell(
-                    onTap: isEditing ? onSaveTapped : onEditTapped,
-                    borderRadius: BorderRadius.circular(100),
-                    child: Padding(
-                      padding: const EdgeInsets.all(2.0),
-                      child: Icon(
-                        isEditing ? Icons.check : Icons.edit,
-                        size: 16,
-                        color: AppColours.primaryGreen,
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (isEditing && onCancelTapped != null) ...[
+                        InkWell(
+                          onTap: onCancelTapped,
+                          borderRadius: BorderRadius.circular(100),
+                          child: const Padding(
+                            padding: EdgeInsets.all(2.0),
+                            child: Icon(
+                              Icons.close,
+                              size: 16,
+                              color: AppColours.primaryRed,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                      ],
+                      InkWell(
+                        onTap: isEditing ? onSaveTapped : onEditTapped,
+                        borderRadius: BorderRadius.circular(100),
+                        child: Padding(
+                          padding: const EdgeInsets.all(2.0),
+                          child: Icon(
+                            isEditing ? Icons.check : Icons.edit,
+                            size: 16,
+                            color: AppColours.primaryGreen,
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
               ],
             ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'enums/gender_enum.dart';
 export 'enums/gender_enum.dart';
 
@@ -61,6 +62,51 @@ class Profile {
       allergies: allergies ?? this.allergies,
       quietStartTime: quietStartTime ?? this.quietStartTime,
       quietEndTime: quietEndTime ?? this.quietEndTime,
+    );
+  }
+
+  // --- TimeOfDay <-> int helpers  ---
+  static int? _timeToInt(TimeOfDay? t) =>
+      t == null ? null : t.hour * 60 + t.minute;
+
+  static TimeOfDay? _intToTime(int? m) =>
+      m == null ? null : TimeOfDay(hour: m ~/ 60, minute: m % 60);
+
+  // ---------- serialisation ----------
+  Map<String, dynamic> toMap() {
+    return {
+      'userId': userId,
+      'birthDate': Timestamp.fromDate(birthDate),
+      'gender': gender.name,
+      'profileImagePath': profileImagePath,
+      'emergencyContactName': emergencyContactName,
+      'emergencyContactPhone': emergencyContactPhone,
+      'medicalConditions': medicalConditions,
+      'allergies': allergies,
+      'quietStartTime': _timeToInt(quietStartTime),
+      'quietEndTime': _timeToInt(quietEndTime),
+    };
+  }
+
+  factory Profile.fromMap(Map<String, dynamic> map, String documentId) {
+    List<String>? strList(dynamic v) =>
+        (v as List<dynamic>?)?.map((e) => e.toString()).toList();
+
+    return Profile(
+      id: documentId, // doc.id = user uid
+      userId: map['userId'] as String,
+      birthDate: (map['birthDate'] as Timestamp).toDate(),
+      gender: GenderType.values.firstWhere(
+        (e) => e.name == map['gender'],
+        orElse: () => GenderType.preferNotToSay,
+      ),
+      profileImagePath: map['profileImagePath'] as String?,
+      emergencyContactName: map['emergencyContactName'] as String?,
+      emergencyContactPhone: map['emergencyContactPhone'] as String?,
+      medicalConditions: strList(map['medicalConditions']),
+      allergies: strList(map['allergies']),
+      quietStartTime: _intToTime(map['quietStartTime'] as int?),
+      quietEndTime: _intToTime(map['quietEndTime'] as int?),
     );
   }
 }

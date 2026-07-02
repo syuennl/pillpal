@@ -30,4 +30,26 @@ class DiaryNote {
       createdAt: createdAt,
     );
   }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'medicationId': medicationId,
+      'type': type.name,
+      'content': content,
+      'createdAt': createdAt, // Firestore SDK handles DateTime automatically
+    };
+  }
+
+  factory DiaryNote.fromMap(Map<String, dynamic> map, String docId) {
+    return DiaryNote(
+      id: docId,
+      medicationId: map['medicationId'] as String,
+      type: DiaryNoteType.values.firstWhere(
+        (e) => e.name == map['type'],
+        orElse: () => DiaryNoteType.others,
+      ),
+      content: map['content'] as String,
+      createdAt: (map['createdAt'] as dynamic).toDate(), 
+    );
+  }
 }

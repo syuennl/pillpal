@@ -28,4 +28,25 @@ class MessageOfTheDay {
       timestamp: timestamp ?? this.timestamp,
     );
   }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'patientId': patientId,
+      'caregiverId': caregiverId,
+      'message': message,
+      'timestamp': timestamp,
+    };
+  }
+
+  factory MessageOfTheDay.fromMap(Map<String, dynamic> map, String documentId) {
+    return MessageOfTheDay(
+      id: documentId,
+      patientId: map['patientId'] ?? '',
+      caregiverId: map['caregiverId'] ?? '',
+      message: map['message'] ?? '',
+      timestamp: map['timestamp'] != null
+          ? (map['timestamp'] as dynamic).toDate()
+          : DateTime.now(),
+    );
+  }
 }

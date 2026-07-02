@@ -1,24 +1,27 @@
 import 'package:collection/collection.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../utils/app_colours.dart';
 
 import '../../services/medication_service.dart';
 import '../../services/adherence_log_service.dart';
 import '../../services/auth_service.dart';
-import '../../utils/app_colours.dart';
+import '../../services/message_of_the_day_service.dart';
+import '../../services/caregiver_service.dart';
+import '../../models/caregiver_relationship.dart';
 
 import '../../widgets/home/date_selector.dart';
 import '../../widgets/home/summary_cards.dart';
 import '../../widgets/home/medication_list.dart';
+import 'notifications_screen.dart';
 
 import '../../models/adherence_log.dart';
 import '../../models/medication.dart';
+import '../../models/message_of_the_day.dart';
 import '../../view_models/daily_task.dart';
 
 import '../../mock/app_notification.dart';
-import '../../mock/message_of_the_day.dart';
-import '../../mock/user_profile.dart';
-import 'notifications_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -33,6 +36,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final _medService = MedicationService();
   final _logService = AdherenceLogService();
+  final _messageService = MessageOfTheDayService();
+  final _caregiverService = CaregiverService();
   final _uid = AuthService().currentUser!.uid;
 
   // set default date to current date
@@ -160,19 +165,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final unreadNotificationsCount = mockNotifications
-        .where((n) => !n.read)
-        .length;
-    final messageData = mockMessagesOfTheDay.firstWhereOrNull(
-      (msg) => msg.patientId == '1',
-    );
-    final formattedTime = messageData != null
-        ? 'Today, ${DateFormat('h:mm a').format(messageData.timestamp)}'
-        : '';
-    final caregiverUser = messageData != null
-        ? mockUsers.firstWhereOrNull((u) => u.id == messageData.caregiverId)
-        : null;
-    final caregiverName = caregiverUser?.name ?? 'Caregiver';
+    final unreadNotificationsCount =
+        mockNotifications // TODO: Remove later
+            .where((n) => !n.read)
+            .length;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -290,102 +286,161 @@ class _HomeScreenState extends State<HomeScreen> {
                   .where((t) => t.log?.status == LogStatus.missed)
                   .length;
 
-              return SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(
-                      height: 16,
-                    ), // space cuz body directly touches edge of app bar
-                    // date selector
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: DateSelector(
-                        selectedMonth: _selectedMonth,
-                        selectedDate: _selectedDate,
-                        onDateChanged: (DateTime newDate) {
-                          setState(() {
-                            _selectedDate = newDate;
-                          });
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // summary cards
-                    SummaryCards(total: total, taken: taken, missed: missed),
-
-                    // message of the day
-                    if (messageData != null) ...[
-                      Container(
-                        margin: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 20,
+              return CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(
+                          height: 16,
+                        ), // space cuz body directly touches edge of app bar
+                        // date selector
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                          child: DateSelector(
+                            selectedMonth: _selectedMonth,
+                            selectedDate: _selectedDate,
+                            onDateChanged: (DateTime newDate) {
+                              setState(() {
+                                _selectedDate = newDate;
+                              });
+                            },
+                          ),
                         ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColours.primaryPink,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.08),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
+                        const SizedBox(height: 24),
+
+                        // summary cards
+                        SummaryCards(
+                          total: total,
+                          taken: taken,
+                          missed: missed,
                         ),
 
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.favorite,
-                              color: Colors.white,
-                              size: 18,
-                            ),
-                            const SizedBox(width: 12),
+                        // message of the day
+                        StreamBuilder<List<CaregiverRelationship>>(
+                          stream: _caregiverService
+                              .streamRelationshipsForPatient(_uid),
+                          builder: (context, caregiverSnap) {
+                            final relationships = caregiverSnap.data ?? [];
+                            if (relationships.isEmpty || relationships.every((r) => r.relationship != CaregiverRelationshipType.primaryCaregiver)) {
+                              return const SizedBox(height: 30);
+                            }
 
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    messageData.message,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '$caregiverName · $formattedTime',
-                                    style: TextStyle(
-                                      color: Colors.white.withOpacity(0.7),
-                                      fontSize: 10,
-                                    ),
-                                  ),
-                                ],
+                            return StreamBuilder<MessageOfTheDay?>(
+                              stream: _messageService.streamMessageForPatient(
+                                _uid,
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ] else ...[
-                      const SizedBox(height: 8),
-                    ],
+                              builder: (context, msgSnap) {
+                                final messageData = msgSnap.data;
+                                if (messageData == null ||
+                                    messageData.message.isEmpty) {
+                                  return const SizedBox(height: 30);
+                                }
 
-                    // medication list
-                    MedicationList(
+                                return FutureBuilder<DocumentSnapshot>(
+                                  future: FirebaseFirestore.instance
+                                      .collection('users')
+                                      .doc(messageData.caregiverId)
+                                      .get(),
+                                  builder: (context, userSnap) {
+                                    final caregiverName =
+                                        userSnap.data?.data() != null
+                                        ? (userSnap.data!.data()
+                                                      as Map<
+                                                        String,
+                                                        dynamic
+                                                      >)['name']
+                                                  as String? ??
+                                              'Caregiver'
+                                        : 'Caregiver';
+                                    final formattedTime =
+                                        'Today, ${DateFormat('h:mm a').format(messageData.timestamp)}';
+
+                                    return Container(
+                                      margin: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 20,
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 10,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppColours.primaryPink,
+                                        borderRadius: BorderRadius.circular(12),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(
+                                              0.08,
+                                            ),
+                                            blurRadius: 4,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
+                                      ),
+
+                                      child: Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.favorite,
+                                            color: Colors.white,
+                                            size: 18,
+                                          ),
+                                          const SizedBox(width: 12),
+
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  messageData.message,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 2),
+                                                Text(
+                                                  '$caregiverName · $formattedTime',
+                                                  style: TextStyle(
+                                                    color: Colors.white
+                                                        .withOpacity(0.7),
+                                                    fontSize: 10,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // medication list (fills remaining screen height)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: MedicationList(
                       todayTasks: todayTasks,
                       onTaken: _handleTakeTask,
                       onSnooze: _handleSnoozeTask,
                       onSkip: _handleSkipTask,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               );
             },
           );

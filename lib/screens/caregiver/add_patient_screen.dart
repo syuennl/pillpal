@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../utils/app_colours.dart';
-import '../../widgets/common/custom_app_bar.dart';
-import '../../mock/caregiver.dart';
-import '../../mock/user_profile.dart';
-import '../../models/user.dart';
-import '../../models/profile.dart';
+import '../../services/caregiver_service.dart';
+import '../../services/auth_service.dart';
 import '../../models/caregiver_relationship.dart';
-import '../../view_models/overall_patient_adherence_stats.dart';
+import '../../widgets/common/custom_app_bar.dart';
+import '../../widgets/caregiver/connect_card_shell.dart';
 
 class AddPatientScreen extends StatefulWidget {
   const AddPatientScreen({super.key});
@@ -16,139 +15,113 @@ class AddPatientScreen extends StatefulWidget {
 }
 
 class _AddPatientScreenState extends State<AddPatientScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _phoneController = TextEditingController();
+  final _caregiverService = CaregiverService();
+  final _authService = AuthService();
+
+  final _codeController = TextEditingController();
+
+  bool _isLoadingCode = false;
+  bool _isRedeeming = false;
+  String? _myInviteCode;
+
+  CaregiverRelationshipType _selectedRelationship =
+      CaregiverRelationshipType.familyMember;
+
+  @override
+  void initState() {
+    super.initState();
+    _generateCode();
+  }
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _emailController.dispose();
-    _phoneController.dispose();
+    _codeController.dispose();
     super.dispose();
   }
 
-  void _handleAddPatient() {
-    if (_formKey.currentState!.validate()) {
-      final newPatientId = (mockUsers.length + 1).toString();
-      final newPatient = User(
-        id: newPatientId,
-        name: _nameController.text.trim(),
-        phone: _phoneController.text.trim(),
-        email: _emailController.text.trim(),
-      );
+  Future<void> _generateCode() async {
+    setState(() => _isLoadingCode = true);
+    try {
+      final uid = _authService.currentUser!.uid;
+      final code = await _caregiverService.generateInviteCode(uid);
+      if (mounted) {
+        setState(() {
+          _myInviteCode = code;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to generate code: $e'),
+            backgroundColor: AppColours.primaryRed,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingCode = false);
+      }
+    }
+  }
 
-      mockUsers.add(newPatient);
-
-      mockProfiles.add(
-        Profile(
-          id: newPatientId,
-          userId: newPatientId,
-          birthDate: DateTime(1990, 1, 1),
-          gender: GenderType.male,
-          profileImagePath: 'lib/utils/images/pfp.jpeg',
-        ),
-      );
-
-      final newRelationship = CaregiverRelationship(
-        id: (mockCaregiverRelationships.length + 1).toString(),
-        patientId: newPatientId,
-        caregiverId: mockUsers[0].id,
-        relationship: CaregiverRelationshipType.familyMember,
-        sinceDate: DateTime.now(),
-      );
-
-      mockCaregiverRelationships.add(newRelationship);
-
-      mockPatientMetrics[newPatientId] = OverallPatientAdherenceStats(
-        takenToday: 0,
-        missedToday: 0,
-        totalTaken: 0,
-        totalMissed: 0,
-        totalSnoozed: 0,
-        adherencePercentage: 100.0,
-      );
-
+  void _copyToClipboard() {
+    if (_myInviteCode != null) {
+      Clipboard.setData(ClipboardData(text: _myInviteCode!));
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${newPatient.name} added successfully!'),
+        const SnackBar(
+          content: Text('Code copied to clipboard'),
           behavior: SnackBarBehavior.floating,
           backgroundColor: AppColours.primaryGreen,
         ),
       );
-
-      Navigator.pop(context, true);
     }
   }
 
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    required String hintText,
-    required IconData prefixIcon,
-    TextInputType keyboardType = TextInputType.text,
-    String? Function(String?)? validator,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: AppColours.fontBrown,
-          ),
+  Future<void> _redeemCode() async {
+    final code = _codeController.text.trim();
+    if (code.length != 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a 6-digit code'),
+          backgroundColor: AppColours.primaryRed,
         ),
-        const SizedBox(height: 8),
+      );
+      return;
+    }
 
-        TextFormField(
-          controller: controller,
-          keyboardType: keyboardType,
-          validator: validator,
-          decoration: InputDecoration(
-            hintText: hintText,
-            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 14,
-            ),
-            fillColor: Colors.white,
-            filled: true,
-            prefixIcon: Icon(prefixIcon, color: Colors.grey[400], size: 20),
+    setState(() => _isRedeeming = true);
+    try {
+      final uid = _authService.currentUser!.uid;
+      await _caregiverService.redeemInviteCode(
+        code: code,
+        caregiverId: uid,
+        relationship: _selectedRelationship,
+      );
 
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: Colors.grey[300]!),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(
-                color: AppColours.primaryGreen,
-                width: 1.5,
-              ),
-            ),
-            
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(
-                color: AppColours.primaryRed,
-                width: 1,
-              ),
-            ),
-            focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(
-                color: AppColours.primaryRed,
-                width: 1.5,
-              ),
-            ),
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Successfully linked patient!'),
+            backgroundColor: AppColours.primaryGreen,
           ),
-          style: const TextStyle(fontSize: 15),
-        ),
-      ],
-    );
+        );
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceAll('Exception: ', '')),
+            backgroundColor: AppColours.primaryRed,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isRedeeming = false);
+      }
+    }
   }
 
   @override
@@ -156,8 +129,8 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: const CustomAppBar(
-        title: 'Add New Patient',
-        subtitle: 'Enter patient information',
+        title: 'Connect',
+        subtitle: 'Invite caregivers or add a patient',
         showBackButton: true,
       ),
 
@@ -165,138 +138,258 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
         children: [
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // form fields
-                    _buildTextField(
-                      controller: _nameController,
-                      label: 'Full Name',
-                      hintText: 'Enter patient\'s full name',
-                      prefixIcon: Icons.person_outline,
-                      validator: (val) {
-                        if (val == null || val.trim().isEmpty) {
-                          return 'Full Name is required';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 20),
+              padding: const EdgeInsets.all(24),
 
-                    _buildTextField(
-                      controller: _emailController,
-                      label: 'Email Address',
-                      hintText: 'patient@example.com',
-                      prefixIcon: Icons.email_outlined,
-                      keyboardType: TextInputType.emailAddress,
-                      validator: (val) {
-                        if (val == null || val.trim().isEmpty) {
-                          return 'Email is required';
-                        }
-                        if (!val.contains('@')) {
-                          return 'Please enter a valid email';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 20),
-
-                    _buildTextField(
-                      controller: _phoneController,
-                      label: 'Phone Number',
-                      hintText: '0123456789',
-                      prefixIcon: Icons.phone_outlined,
-                      keyboardType: TextInputType.phone,
-                      validator: (val) {
-                        final text = val?.trim() ?? '';
-                        if (text.isEmpty) {
-                          return 'Phone number is required';
-                        }
-                        if (text.length < 10 || text.length > 11) {
-                          return 'Phone must be 10-11 digits';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 32),
-
-                    // note card
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppColours.secondaryGreen,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: RichText(
-                        text: TextSpan(
-                          style: const TextStyle(
-                            color: Colors.black87,
-                            fontSize: 14,
-                            height: 1.5,
+              child: Column(
+                children: [
+                  // invite caregivers
+                  ConnectCardShell(
+                    title: 'Invite caregivers',
+                    subtitle:
+                        'Generate a code and share it with a caregiver to link them to your account.',
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: _isLoadingCode ? null : _generateCode,
+                        icon: _isLoadingCode
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.refresh, size: 18),
+                        label: const Text('Regenerate code'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColours.primaryGreen,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          children: [
-                            const TextSpan(
-                              text: 'Note: ',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            TextSpan(
-                              text:
-                                  'After adding the patient, you can assign medications and track their adherence from the patient details page.',
-                              style: TextStyle(color: Colors.grey[800]),
-                            ),
-                          ],
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 32),
+                      const SizedBox(height: 20),
 
-                    // submit button
-                    ElevatedButton(
-                      onPressed: _handleAddPatient,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColours.primaryGreen,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      child: const Text(
-                        'Add Patient',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
+                      // code
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 20),
+                              decoration: BoxDecoration(
+                                color: AppColours.tertiaryGreen,
+                                border: Border.all(
+                                  color: AppColours.primaryGreen.withOpacity(
+                                    0.3,
+                                  ),
+                                ),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  _myInviteCode?.split('').join('  ') ??
+                                      '- - - - - -',
+                                  style: const TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 2,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
 
-                    // cancel button
-                    ElevatedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColours.buttonGrey,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                          // copy button
+                          InkWell(
+                            onTap: _copyToClipboard,
+                            borderRadius: BorderRadius.circular(16),
+                            child: Container(
+                              padding: const EdgeInsets.all(22),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey[300]!),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Icon(
+                                Icons.content_copy,
+                                color: Colors.grey[600],
+                                size: 24,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // code expiry message
+                      Center(
+                        child: Text(
+                          'This code expires in 24 hours',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey[400],
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
-                      child: Text(
-                        'Cancel',
+                    ],
+                  ),
+                  const SizedBox(height: 30),
+
+                  // add patient card
+                  ConnectCardShell(
+                    title: 'Add new patient',
+                    subtitle:
+                        'Enter the 6-digit code from your patient\'s app to link their account.',
+                    children: [
+                      const SizedBox(height: 4),
+
+                      // code input field
+                      TextFormField(
+                        controller: _codeController,
+                        keyboardType: TextInputType.number,
+                        maxLength: 6,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 16,
+                        ),
+
+                        decoration: InputDecoration(
+                          counterText: '',
+                          hintText: '000000',
+                          hintStyle: TextStyle(
+                            color: Colors.grey[300],
+                            letterSpacing: 16,
+                          ),
+                          filled: true,
+                          fillColor: Colors.grey[50],
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 22,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(color: Colors.grey[300]!),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(color: Colors.grey[300]!),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: const BorderSide(
+                              color: AppColours.secondaryGreen,
+                              width: 2,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // relationship dropdown
+                      Text(
+                        'Relationship to Patient',
                         style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
                           color: Colors.grey[600],
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ),
-                  ],
-                ),
+                      const SizedBox(height: 12),
+
+                      // dropdown
+                      DropdownButtonFormField<CaregiverRelationshipType>(
+                        value: _selectedRelationship,
+                        icon: const Icon(
+                          Icons.keyboard_arrow_down,
+                          color: Colors.grey,
+                        ),
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: Colors.grey[50],
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 16,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(color: Colors.grey[300]!),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(color: Colors.grey[300]!),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: const BorderSide(
+                              color: AppColours.secondaryGreen,
+                              width: 2,
+                            ),
+                          ),
+                        ),
+
+                        items: CaregiverRelationshipType.values.map((type) {
+                          return DropdownMenuItem(
+                            value: type,
+                            child: Text(
+                              type.displayName,
+                              style: TextStyle(fontSize: 15),
+                            ),
+                          );
+                        }).toList(),
+
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() {
+                              _selectedRelationship = value;
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 24),
+
+                      // add patient button
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _isRedeeming ? null : _redeemCode,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColours.primaryGreen,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          child: _isRedeeming
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text(
+                                  'Add Patient',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ),

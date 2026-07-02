@@ -2,17 +2,52 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../utils/app_colours.dart';
 import '../../screens/caregiver/patient_details_screen.dart';
+
 import '../../models/user.dart';
 import '../../models/profile.dart';
-import '../../mock/user_profile.dart';
-import '../../mock/medication.dart';
 import '../../view_models/overall_patient_adherence_stats.dart';
 
-class PatientCard extends StatelessWidget {
+import '../../services/profile_service.dart';
+import '../../services/medication_service.dart';
+
+class PatientCard extends StatefulWidget {
   final User patient;
   final OverallPatientAdherenceStats stats;
 
   const PatientCard({super.key, required this.patient, required this.stats});
+
+  @override
+  State<PatientCard> createState() => _PatientCardState();
+}
+
+class _PatientCardState extends State<PatientCard> {
+  final _profileService = ProfileService();
+  final _medicationService = MedicationService();
+
+  Profile? _profile;
+  int _medicationsCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+    _medicationService.streamMedications(widget.patient.id).listen((meds) {
+      if (mounted) {
+        setState(() {
+          _medicationsCount = meds.length;
+        });
+      }
+    });
+  }
+
+  Future<void> _loadProfile() async {
+    final p = await _profileService.getProfile(widget.patient.id);
+    if (mounted) {
+      setState(() {
+        _profile = p;
+      });
+    }
+  }
 
   ImageProvider _getAvatarImage(String path) {
     if (path.startsWith('http://') || path.startsWith('https://')) {
@@ -26,30 +61,16 @@ class PatientCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final profile = mockProfiles.firstWhere(
-      (p) => p.userId == patient.id,
-      orElse: () => Profile(
-        id: '',
-        userId: patient.id,
-        birthDate: DateTime(1990, 1, 1),
-        gender: GenderType.male,
-      ),
-    );
-    final profileImagePath = profile.profileImagePath;
-
-    final String name = patient.name;
-    final int medicationsCount = mockMedications
-        .where((m) => m.userId == patient.id)
-        .length;
-    final int missedDosesToday = stats.missedToday;
-    final int adherenceRate = stats.adherencePercentage.toInt();
+    final profileImagePath = _profile?.profileImagePath;
+    final int missedDosesToday = widget.stats.missedToday;
+    final int adherenceRate = widget.stats.adherencePercentage.toInt();
 
     return GestureDetector(
       onTap: () {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => PatientDetailsScreen(patient: patient),
+            builder: (context) => PatientDetailsScreen(patient: widget.patient),
           ),
         );
       },
@@ -105,7 +126,7 @@ class PatientCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        name,
+                        widget.patient.name,
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
@@ -114,7 +135,7 @@ class PatientCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '$medicationsCount medications',
+                        '$_medicationsCount medications',
                         style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                       ),
                     ],

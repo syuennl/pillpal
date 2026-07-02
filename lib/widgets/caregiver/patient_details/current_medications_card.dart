@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../models/medication.dart';
-import '../../../mock/adherence_log.dart';
+import '../../../models/adherence_log.dart';
+import '../../../services/adherence_log_service.dart';
 import '../../../utils/app_colours.dart';
 
 class CurrentMedicationsCard extends StatelessWidget {
@@ -8,7 +9,7 @@ class CurrentMedicationsCard extends StatelessWidget {
 
   const CurrentMedicationsCard({super.key, required this.medications});
 
-  Widget _buildMedicationItem(Medication med) {
+  Widget _buildMedicationItem(Medication med, List<AdherenceLog> logs) {
     final name = med.name;
     final dosage = med.formattedDosage;
     final frequency = med.frequencyDisplay;
@@ -21,14 +22,9 @@ class CurrentMedicationsCard extends StatelessWidget {
               .join(', ')
         : 'As needed';
 
-    // Calculate dynamic snooze count from mock logs database for today
-    final now = DateTime.now();
-    final snoozeCount = mockAdherenceLogs
-        .where((log) =>
-            log.medicationId == med.id &&
-            log.date.year == now.year &&
-            log.date.month == now.month &&
-            log.date.day == now.day)
+    // calculate dynamic snooze count from logs database for today
+    final snoozeCount = logs
+        .where((log) => log.medicationId == med.id)
         .map((log) => log.snoozeCount)
         .fold(0, (sum, count) => sum + count);
 
@@ -127,9 +123,21 @@ class CurrentMedicationsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [...medications.map(_buildMedicationItem)],
+    if (medications.isEmpty) return const SizedBox.shrink();
+
+    final userId = medications.first.userId;
+
+    return StreamBuilder<List<AdherenceLog>>(
+      stream: AdherenceLogService().streamLogsForDate(userId, DateTime.now()),
+      builder: (context, snapshot) {
+        final logs = snapshot.data ?? [];
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: medications
+              .map((med) => _buildMedicationItem(med, logs))
+              .toList(),
+        );
+      },
     );
   }
 }

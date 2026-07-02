@@ -26,7 +26,7 @@ class MedicationCardShell extends StatelessWidget {
       ),
 
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start, // main = .spaceBetween?
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // medication info
           Row(
@@ -64,7 +64,9 @@ class MedicationCardShell extends StatelessWidget {
 
           // dosage & strength
           Text(
-            '${medication.formattedDosage} (${medication.formattedStrength})',
+            medication.formattedStrength.isEmpty
+                ? medication.formattedDosage
+                : '${medication.formattedDosage} (${medication.formattedStrength})',
             style: TextStyle(color: Colors.grey[600], fontSize: 14),
           ),
           const SizedBox(height: 12),

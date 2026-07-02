@@ -384,17 +384,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       await FcmService().clearToken(uid);
                     }
 
-                    await AuthService().signOut();
-
-                    if (!context.mounted) return;
-
-                    // back to landing screen
+                    // back to landing screen FIRST to unmount active screens and cancel their streams
                     Navigator.of(context).pushAndRemoveUntil(
                       MaterialPageRoute(
                         builder: (context) => const LandingScreen(),
                       ),
                       (route) => false,
                     );
+
+                    // THEN sign out, preventing permission-denied errors on active streams
+                    await AuthService().signOut();
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColours.tertiaryRed,

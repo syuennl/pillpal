@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../models/adherence_log.dart';
-
+import '../view_models/overall_patient_adherence_stats.dart';
 
 /// Each dose (a medication at a specific scheduled time on a specific day)
 /// gets ONE log, identified by a deterministic ID: "{medId}_{yyyymmdd}_{minutes}"
@@ -143,5 +143,60 @@ class AdherenceLogService {
               .map((doc) => AdherenceLog.fromMap(doc.data(), doc.id))
               .toList(),
         );
+  }
+
+  // ---------------- overall adherence stats ----------------
+  Future<OverallPatientAdherenceStats> getPatientStats(String patientId) async {
+    // one-time fetch of this patient's logs
+    final logs = await streamAllLogs(patientId).first;
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final cutoff = today.subtract(const Duration(days: 30));
+
+    int takenToday = 0;
+    int missedToday = 0;
+    int totalTaken = 0;
+    int totalMissed = 0;
+    int totalSnoozed = 0;
+
+    for (final log in logs) {
+      // get the date of the log
+      final logDay = DateTime(log.date.year, log.date.month, log.date.day);
+
+      // today's counts
+      if (logDay == today) {
+        if (log.status == LogStatus.taken) takenToday++;
+        if (log.status == LogStatus.missed) missedToday++;
+      }
+
+      // last-30-days totals
+      if (!logDay.isBefore(cutoff)) {
+        switch (log.status) {
+          case LogStatus.taken:
+            totalTaken++;
+            break;
+          case LogStatus.missed:
+            totalMissed++;
+            break;
+          case LogStatus.snoozed:
+            totalSnoozed++;
+            break;
+        }
+      }
+    }
+
+    // adherence % = taken / (taken + missed) over the 30-day window.
+    final considered = totalTaken + totalMissed;
+    final adherence = considered == 0 ? 100.0 : (totalTaken / considered) * 100;
+
+    return OverallPatientAdherenceStats(
+      takenToday: takenToday,
+      missedToday: missedToday,
+      totalTaken: totalTaken,
+      totalMissed: totalMissed,
+      totalSnoozed: totalSnoozed,
+      adherencePercentage: adherence,
+    );
   }
 }

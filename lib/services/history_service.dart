@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../view_models/history_group.dart';
 import '../models/enums/medication_enums.dart';
+import '../models/adherence_log.dart';
 
 import '../services/auth_service.dart';
 import '../services/adherence_log_service.dart';
@@ -20,7 +21,7 @@ class HistoryService {
     final logs = await AdherenceLogService().streamAllLogs(uid).first;
     final medications = await MedicationService().streamMedications(uid).first;
 
-    // create a map for quick lookup, with m.id as key, m as obj
+    // create a map, with m.id as key, m as obj
     final medById = {for (final m in medications) m.id: m};
 
     // sort logs newest first
@@ -37,11 +38,13 @@ class HistoryService {
     // grouping logs by day
     final Map<String, List<HistoryRecord>> groupedRecords = {};
     for (final log in logs) {
+      // skip snoozed logs
+      if (log.status == LogStatus.snoozed) continue;
+
       // find the medication associated w/ the log frm the map
       final med = medById[log.medicationId];
 
       // skip logs whose medication was deleted (orphans), or show a fallback
-      // if (med == null) continue;)
       final medName = med?.name ?? 'Deleted medication';
       final iconType = med?.type ?? MedicationType.pill;
 

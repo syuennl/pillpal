@@ -2,12 +2,12 @@ final List<Map<String, String>> faqConstants = [
   {
     'question': 'How do I add a medication?',
     'answer':
-        'Tap the "+" button on the My Pillbox screen, then use your camera to scan the medication label. Our OCR technology will automatically extract the medication information.',
+        'Tap the "+" button on the My Pillbox screen, then use your camera to scan the medication label or upload a photo of your packaging. Our built-in smart scanner will automatically extract the medication details for you.',
   },
   {
     'question': 'What if I miss a dose?',
     'answer':
-        'If you miss a dose, the app will mark it as "Missed" in your medication history. You can view your adherence history in the Diary tab.',
+        'If you miss a dose, the app will mark it as "Missed". If you end up taking it later, simply tap the "Missed" button to update its status to "Taken". You can always review your past records in the "History" screen.',
   },
   {
     'question': 'How do I set up quiet hours?',

@@ -381,7 +381,7 @@ class _MedicationFormState extends State<MedicationForm> {
         SnackBar(
           content: Text(
             'Error: ${e.toString()}',
-          ), // TODO: swap to friendlier message?
+          ), 
           backgroundColor: AppColours.primaryRed,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(

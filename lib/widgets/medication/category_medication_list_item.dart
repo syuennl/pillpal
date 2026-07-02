@@ -100,7 +100,9 @@ class CategoryMedicationListItem extends StatelessWidget {
 
                           Flexible(
                             child: Text(
-                              medication.scheduledTimes.join(', '),
+                              medication.scheduledTimes
+                                  .map((t) => t.format(context))
+                                  .join(', '),
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.grey[600],

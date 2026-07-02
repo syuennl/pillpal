@@ -277,7 +277,9 @@ class MedicationDetailsScreen extends StatelessWidget {
 
                           // dosage info
                           Text(
-                            '${med.dosageAmount} ${med.dosageUnit} (${med.strengthValue} ${med.strengthUnit}) per intake',
+                            med.strengthValue != null
+                                ? '${med.dosageAmount} ${med.dosageUnit} (${med.strengthValue} ${med.strengthUnit}) per intake'
+                                : '${med.dosageAmount} ${med.dosageUnit} per intake',
                             style: TextStyle(
                               fontSize: 16,
                               color: Colors.grey[700],

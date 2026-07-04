@@ -6,6 +6,7 @@ final DateTime _now = DateTime.now();
 final List<DiaryNote> mockDiaryNotes = [
   DiaryNote(
     id: '1',
+    userId: '1',
     medicationId: mockMedications[0].id, // Lisinopril
     type: DiaryNoteType.sideEffect,
     content: 'Experienced mild dizziness after taking the morning dose.',
@@ -13,6 +14,7 @@ final List<DiaryNote> mockDiaryNotes = [
   ),
   DiaryNote(
     id: '2',
+    userId: '1',
     medicationId: mockMedications[0].id, // Lisinopril
     type: DiaryNoteType.sideEffect,
     content: 'Dry cough started a few days after beginning treatment.',
@@ -20,6 +22,7 @@ final List<DiaryNote> mockDiaryNotes = [
   ),
   DiaryNote(
     id: '3',
+    userId: '1',
     medicationId: mockMedications[1].id, // Metformin
     type: DiaryNoteType.symptom,
     content: 'Feeling slightly nauseous after taking with empty stomach.',
@@ -27,6 +30,7 @@ final List<DiaryNote> mockDiaryNotes = [
   ),
   DiaryNote(
     id: '4',
+    userId: '1',
     medicationId: mockMedications[2].id, // Amoxicillin Suspension
     type: DiaryNoteType.sideEffect,
     content: 'Mild diarrhea noticed on day 3 of treatment.',
@@ -34,6 +38,7 @@ final List<DiaryNote> mockDiaryNotes = [
   ),
   DiaryNote(
     id: '5',
+    userId: '1',
     medicationId: mockMedications[4].id, // Insulin Glargine
     type: DiaryNoteType.symptom,
     content: 'Blood sugar dropped slightly below normal after evening dose.',
@@ -41,6 +46,7 @@ final List<DiaryNote> mockDiaryNotes = [
   ),
   DiaryNote(
     id: '6',
+    userId: '1',
     medicationId: mockMedications[5].id, // Nicotine Patch
     type: DiaryNoteType.others,
     content:
@@ -49,6 +55,7 @@ final List<DiaryNote> mockDiaryNotes = [
   ),
   DiaryNote(
     id: '7',
+    userId: '1',
     medicationId: mockMedications[3].id, // Cough Syrup
     type: DiaryNoteType.others,
     content: 'Took extra dose as cough was severe. Will monitor.',

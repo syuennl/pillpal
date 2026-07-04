@@ -31,10 +31,11 @@ class LandingScreen extends StatelessWidget {
                 Column(
                   children: [
                     Container(
-                      width: 96,
-                      height: 96,
+                      // padding: EdgeInsets.all(0),
+                      width: 100,
+                      height: 100,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: Colors.transparent,
                         borderRadius: BorderRadius.circular(24),
                         boxShadow: [
                           BoxShadow(
@@ -45,10 +46,12 @@ class LandingScreen extends StatelessWidget {
                         ],
                       ),
 
-                      child: const Icon(
-                        Icons.medication,
-                        size: 48,
-                        color: AppColours.primaryGreen,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(24),
+                        child: Image.asset(
+                          'lib/utils/images/logo.png',
+                          fit: BoxFit.cover,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -142,10 +145,10 @@ class LandingScreen extends StatelessWidget {
                 const SizedBox(height: 24),
 
                 // footer
-                const Text(
-                  'Managing medications made simple',
-                  style: TextStyle(fontSize: 14, color: Colors.white70),
-                ),
+                // const Text(
+                //   'Managing medications made simple',
+                //   style: TextStyle(fontSize: 14, color: Colors.white70),
+                // ),
               ],
             ),
           ),

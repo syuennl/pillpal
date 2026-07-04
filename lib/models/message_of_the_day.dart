@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class MessageOfTheDay {
   final String id;
   final String patientId;
@@ -34,7 +36,7 @@ class MessageOfTheDay {
       'patientId': patientId,
       'caregiverId': caregiverId,
       'message': message,
-      'timestamp': timestamp,
+      'timestamp': Timestamp.fromDate(timestamp),
     };
   }
 

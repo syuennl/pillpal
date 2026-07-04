@@ -116,6 +116,7 @@ class MedicationImagePicker extends StatelessWidget {
             fit: BoxFit.cover,
             // if the file is missing/unreadable, fall back to placeholder
             errorBuilder: (_, __, ___) => Container(
+              width: double.infinity,
               height: 200,
               color: Colors.grey[200],
               child: Icon(

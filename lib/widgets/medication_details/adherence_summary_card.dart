@@ -65,7 +65,11 @@ class AdherenceSummaryCard extends StatelessWidget {
               widthFactor: rate,
               child: Container(
                 decoration: BoxDecoration(
-                  color: AppColours.primaryGreen,
+                  color: ratePercentage >= 80
+                      ? AppColours.primaryGreen
+                      : ratePercentage > 50
+                      ? AppColours.primaryOrange
+                      : AppColours.primaryRed,
                   borderRadius: BorderRadius.circular(6),
                 ),
               ),

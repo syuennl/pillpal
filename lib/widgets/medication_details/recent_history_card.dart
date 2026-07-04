@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../utils/app_colours.dart';
 import '../medication/medication_card.dart';
-import 'package:pillpal/models/adherence_log.dart';
 import 'package:pillpal/view_models/history_entry.dart';
 
 class RecentHistoryCard extends StatelessWidget {
@@ -58,17 +56,13 @@ class RecentHistoryCard extends StatelessWidget {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: entry.status == LogStatus.taken
-                          ? AppColours.secondaryGreen
-                          : AppColours.tertiaryRed,
+                      color: entry.status.backgroundColor,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
                       entry.status.displayName,
                       style: TextStyle(
-                        color: entry.status == LogStatus.taken
-                            ? AppColours.primaryGreen
-                            : AppColours.primaryRed,
+                        color: entry.status.contentColor,
                         fontWeight: FontWeight.w600,
                         fontSize: 12,
                       ),

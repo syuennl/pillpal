@@ -80,7 +80,7 @@ class HistoryRecordCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: Colors.grey[800],
+                        color: Colors.grey[500],
                       ),
                     ),
                     if (scheduledTime != null) ...[
@@ -106,13 +106,9 @@ class HistoryRecordCard extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  status.icon,
-                  size: 14,
-                  color: status.contentColor,
-                ),
+                Icon(status.icon, size: 14, color: status.contentColor),
                 const SizedBox(width: 4),
-                
+
                 Text(
                   status.displayName,
                   style: TextStyle(

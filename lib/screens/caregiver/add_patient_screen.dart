@@ -25,7 +25,7 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
   String? _myInviteCode;
 
   CaregiverRelationshipType _selectedRelationship =
-      CaregiverRelationshipType.familyMember;
+      CaregiverRelationshipType.primaryCaregiver;
 
   @override
   void initState() {
@@ -306,6 +306,7 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
 
                       // dropdown
                       DropdownButtonFormField<CaregiverRelationshipType>(
+                        dropdownColor: Colors.white,
                         value: _selectedRelationship,
                         icon: const Icon(
                           Icons.keyboard_arrow_down,

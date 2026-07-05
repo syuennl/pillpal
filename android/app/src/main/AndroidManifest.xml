@@ -7,7 +7,10 @@
     <application
         android:label="pillpal"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/launcher_icon">
+        <meta-data
+        android:name="com.google.firebase.messaging.default_notification_channel_id"
+        android:value="caregiver_alerts" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -42,6 +45,7 @@
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
             </intent-filter>
         </receiver>
+        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

@@ -17,8 +17,6 @@ class MedicationService {
 
   // READ (live)
   // live stream of this user's medications
-  // Updates automatically whenever a med is added, edited, or deleted, no need refresh
-  // Use this with a StreamBuilder on the home and medication screens.
   Stream<List<Medication>> streamMedications(String userId) {
     return _medications
         .where('userId', isEqualTo: userId)
@@ -34,7 +32,7 @@ class MedicationService {
   }
 
   // READ (one-off)
-  //fetches a single medication by ID once
+  // fetches a single medication by ID once
   // returns null if it doesn't exist
   Future<Medication?> getMedication(String medId) async {
     final doc = await _medications.doc(medId).get();
@@ -48,11 +46,12 @@ class MedicationService {
   }
 
   // DELETE
-  Future<void> deleteMedication(String medId) async {
+  Future<void> deleteMedication(Medication med) async {
     // delete related adherence logs first
     final logs = await _db
         .collection('adherenceLogs')
-        .where('medicationId', isEqualTo: medId)
+        .where('userId', isEqualTo: med.userId)
+        .where('medicationId', isEqualTo: med.id)
         .get();
 
     for (final doc in logs.docs) {
@@ -60,6 +59,6 @@ class MedicationService {
     }
 
     // delete the medication
-    await _medications.doc(medId).delete();
+    await _medications.doc(med.id).delete();
   }
 }

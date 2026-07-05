@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../utils/app_colours.dart';
 import '../../screens/caregiver/patient_details_screen.dart';
@@ -26,18 +27,27 @@ class _PatientCardState extends State<PatientCard> {
 
   Profile? _profile;
   int _medicationsCount = 0;
+  StreamSubscription? _medsSubscription;
 
   @override
   void initState() {
     super.initState();
     _loadProfile();
-    _medicationService.streamMedications(widget.patient.id).listen((meds) {
-      if (mounted) {
-        setState(() {
-          _medicationsCount = meds.length;
+    _medsSubscription = _medicationService
+        .streamMedications(widget.patient.id)
+        .listen((meds) {
+          if (mounted) {
+            setState(() {
+              _medicationsCount = meds.length;
+            });
+          }
         });
-      }
-    });
+  }
+
+  @override
+  void dispose() {
+    _medsSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadProfile() async {
@@ -213,6 +223,8 @@ class _PatientCardState extends State<PatientCard> {
                 valueColor: AlwaysStoppedAnimation<Color>(
                   adherenceRate >= 80
                       ? AppColours.primaryGreen
+                      : adherenceRate > 50
+                      ? AppColours.primaryOrange
                       : AppColours.primaryRed,
                 ),
               ),

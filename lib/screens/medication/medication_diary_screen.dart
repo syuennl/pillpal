@@ -27,6 +27,7 @@ class _MedicationDiaryScreenState extends State<MedicationDiaryScreen> {
     final newNote = DiaryNote(
       id: '', // Firestore will generate this
       medicationId: widget.medication.id,
+      userId: widget.medication.userId,
       type: type,
       content: content,
       createdAt: DateTime.now(),
@@ -156,9 +157,21 @@ class _MedicationDiaryScreenState extends State<MedicationDiaryScreen> {
       ),
       body: StreamBuilder<List<DiaryNote>>(
         stream: _diaryNoteService.streamNotesForMedication(
+          widget.medication.userId,
           widget.medication.id,
         ),
         builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            debugPrint('Error loading diary notes: ${snapshot.error}');
+            return Center(
+              child: Text(
+                'Failed to load notes.\nCheck console for details.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.red),
+              ),
+            );
+          }
+
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }

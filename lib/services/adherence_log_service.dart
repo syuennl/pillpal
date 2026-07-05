@@ -86,11 +86,6 @@ class AdherenceLogService {
     final logDate = _dateOnly(date ?? DateTime.now());
     final id = _logId(medicationId, logDate, scheduledTime);
 
-    final existing = await _logs.doc(id).get();
-    final currentCount = existing.exists
-        ? (existing.data()?['snoozeCount'] as int? ?? 0)
-        : 0;
-
     final log = AdherenceLog(
       id: id,
       medicationId: medicationId,
@@ -99,10 +94,13 @@ class AdherenceLogService {
       scheduledTime: scheduledTime,
       takenTime: null,
       status: LogStatus.snoozed,
-      snoozeCount: currentCount + 1,
-    );
+      snoozeCount: 0, // placeholder, will be overridden
+    ).toMap();
 
-    await _logs.doc(id).set(log.toMap());
+    // override with FieldValue to perform atomic increment on the database side
+    log['snoozeCount'] = FieldValue.increment(1);
+
+    await _logs.doc(id).set(log, SetOptions(merge: true));
   }
 
   // ---------------- reads ----------------
@@ -122,8 +120,9 @@ class AdherenceLogService {
   }
 
   // live stream of all logs for one medication
-  Stream<List<AdherenceLog>> streamLogsForMedication(String medicationId) {
+  Stream<List<AdherenceLog>> streamLogsForMedication(String userId, String medicationId) {
     return _logs
+        .where('userId', isEqualTo: userId)
         .where('medicationId', isEqualTo: medicationId)
         .snapshots()
         .map(

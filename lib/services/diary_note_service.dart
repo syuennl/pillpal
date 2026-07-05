@@ -8,8 +8,9 @@ class DiaryNoteService {
       _db.collection('diaryNotes');
 
   // get stream of notes for a specific medication
-  Stream<List<DiaryNote>> streamNotesForMedication(String medicationId) {
+  Stream<List<DiaryNote>> streamNotesForMedication(String userId, String medicationId) {
     return _notes
+        .where('userId', isEqualTo: userId)
         .where('medicationId', isEqualTo: medicationId)
         .orderBy('createdAt', descending: true)
         .snapshots()

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:pillpal/utils/app_colours.dart';
 
 class EmptyState extends StatelessWidget {
   const EmptyState({super.key});

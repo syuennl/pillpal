@@ -379,9 +379,7 @@ class _MedicationFormState extends State<MedicationForm> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Error: ${e.toString()}',
-          ), 
+          content: Text('Error: ${e.toString()}'),
           backgroundColor: AppColours.primaryRed,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
@@ -541,7 +539,7 @@ class _MedicationFormState extends State<MedicationForm> {
                                 .isNotEmpty;
                             // if unit is filled but value isn't, value becomes required
                             if (hasUnit && !hasValue) return 'Enter strength';
-                            if (hasValue && int.tryParse(v) == null)
+                            if (hasValue && double.tryParse(v) == null)
                               return 'Enter a number';
                             return null; // both empty = fine
                           },

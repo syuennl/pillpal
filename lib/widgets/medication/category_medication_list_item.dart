@@ -101,7 +101,10 @@ class CategoryMedicationListItem extends StatelessWidget {
                           Flexible(
                             child: Text(
                               medication.scheduledTimes
-                                  .map((t) => t.format(context))
+                                  .map(
+                                    (t) =>
+                                        '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}',
+                                  )
                                   .join(', '),
                               style: TextStyle(
                                 fontSize: 12,

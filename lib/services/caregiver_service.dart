@@ -34,7 +34,7 @@ class CaregiverService {
       'patientId': patientId,
       'createdAt': FieldValue.serverTimestamp(),
       'expiresAt': Timestamp.fromDate(
-        DateTime.now().add(const Duration(hours: 24)),
+        DateTime.now().add(const Duration(hours: 24)), // expires in 24hrs
       ),
     });
 

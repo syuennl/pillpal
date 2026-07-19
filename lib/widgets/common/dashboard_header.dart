@@ -3,14 +3,14 @@ import '../../utils/app_colours.dart';
 
 class DashboardHeader extends StatelessWidget {
   final String title;
-  final String subtitle;
-  final VoidCallback onAddPressed;
+  final String? subtitle;
+  final VoidCallback? onAddPressed;
 
   const DashboardHeader({
     super.key,
     required this.title,
-    required this.subtitle,
-    required this.onAddPressed,
+    this.subtitle,
+    this.onAddPressed,
   });
 
   @override
@@ -39,16 +39,19 @@ class DashboardHeader extends StatelessWidget {
                   color: Colors.white,
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                style: const TextStyle(fontSize: 14, color: Colors.white),
-              ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  subtitle!,
+                  style: const TextStyle(fontSize: 14, color: Colors.white),
+                ),
+              ],
             ],
           ),
 
-          GestureDetector(
-            onTap: onAddPressed,
+          if (onAddPressed != null)
+            GestureDetector(
+              onTap: onAddPressed,
             child: Container(
               width: 48,
               height: 48,

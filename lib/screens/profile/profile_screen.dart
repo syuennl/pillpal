@@ -10,7 +10,7 @@ import '../../widgets/profile/medical_content.dart';
 import '../../widgets/profile/quiet_hours_content.dart';
 import '../../widgets/profile/settings_content.dart';
 import '../../widgets/profile/profile_avatar.dart';
-import '../../widgets/common/custom_app_bar.dart';
+import '../../widgets/common/dashboard_header.dart';
 import '../login/landing_screen.dart';
 
 import '../../services/auth_service.dart';
@@ -240,197 +240,204 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return Scaffold(
       backgroundColor: AppColours.backgroundGreen,
-      appBar: const CustomAppBar(title: 'Profile'),
 
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            children: [
-              // pfp
-              ProfileAvatar(
-                imageUrl: profile?.profileImagePath,
-                onImageChanged: (newPath) async {
-                  final updatedPfp = (_profile ?? _blankProfile()).copyWith(
-                    profileImagePath: newPath,
-                    clearProfileImage: newPath == null,
-                  );
+      body: Column(
+        children: [
+          // app bar
+          const DashboardHeader(title: 'Profile'),
 
-                  await _profileService.saveProfile(updatedPfp);
-                  if (mounted) setState(() => _profile = updatedPfp);
-                },
-              ),
-              SizedBox(height: 16),
+          // body
+          Expanded(
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  children: [
+                    // pfp
+                    ProfileAvatar(
+                      imageUrl: profile?.profileImagePath,
+                      onImageChanged: (newPath) async {
+                        final updatedPfp = (_profile ?? _blankProfile())
+                            .copyWith(
+                              profileImagePath: newPath,
+                              clearProfileImage: newPath == null,
+                            );
 
-              // name
-              Text(
-                _nameController.text,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              SizedBox(height: 32),
-
-              // personal info
-              InfoCardShell(
-                title: 'Personal Information',
-                hasTrailing: true,
-                isEditing: _isPersonalEditing,
-                onEditTapped: () {
-                  setState(() {
-                    _isPersonalEditing = true;
-                  });
-                },
-                onSaveTapped: _savePersonalInfo,
-                onCancelTapped: () {
-                  setState(() {
-                    _isPersonalEditing = false;
-                    _resetForm();
-                  });
-                },
-                content: ProfileContent(
-                  isEditing: _isPersonalEditing,
-                  formKey: _formKey,
-                  data: personalInfoMap,
-                  nameController: _nameController,
-                  phoneController: _phoneController,
-                  dobController: _dobController,
-                  genderController: _genderController,
-                  emergencyNameController: _emergencyNameController,
-                  emergencyPhoneController: _emergencyPhoneController,
-                ),
-              ),
-              SizedBox(height: 16),
-
-              // medical info
-              InfoCardShell(
-                title: 'Medical Information',
-                hasTrailing: true,
-                isEditing: _isMedicalEditing,
-                onEditTapped: () {
-                  setState(() {
-                    _isMedicalEditing = true;
-                  });
-                },
-                onSaveTapped: _saveMedicalInfo,
-                onCancelTapped: () {
-                  setState(() {
-                    _isMedicalEditing = false;
-                    _resetForm();
-                  });
-                },
-                content: MedicalContent(
-                  isEditing: _isMedicalEditing,
-                  allergies: profile?.allergies ?? [],
-                  medicalConditions: profile?.medicalConditions ?? [],
-                  allergiesController: _allergiesController,
-                  medicalConditionsController: _medicalConditionsController,
-                ),
-              ),
-              SizedBox(height: 16),
-
-              // quiet hours
-              InfoCardShell(
-                title: 'Quiet Hours',
-                hasTrailing: true,
-                isEditing: _isQuietHoursEditing,
-                onEditTapped: () {
-                  setState(() {
-                    _isQuietHoursEditing = true;
-                  });
-                },
-                onSaveTapped: _saveQuietHours,
-                onCancelTapped: () {
-                  setState(() {
-                    _isQuietHoursEditing = false;
-                    _resetForm();
-                  });
-                },
-                content: QuietHoursContent(
-                  isEditing: _isQuietHoursEditing,
-                  startTime: _quietStartTime,
-                  endTime: _quietEndTime,
-                  onStartTimeChanged: (time) {
-                    setState(() {
-                      _quietStartTime = time;
-                    });
-                  },
-                  onEndTimeChanged: (time) {
-                    setState(() {
-                      _quietEndTime = time;
-                    });
-                  },
-                ),
-              ),
-              SizedBox(height: 16),
-
-              // settings
-              InfoCardShell(
-                title: 'Settings',
-                hasTrailing: false,
-                content: const SettingsContent(),
-              ),
-              const SizedBox(height: 32),
-
-              // sign out button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () async {
-                    final uid = AuthService().currentUser?.uid;
-                    if (uid != null) {
-                      // clear FCM token
-                      await FcmService().clearToken(uid);
-                    }
-
-                    // back to landing screen FIRST to unmount active screens and cancel their streams
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(
-                        builder: (context) => const LandingScreen(),
-                      ),
-                      (route) => false,
-                    );
-
-                    // THEN sign out, preventing permission-denied errors on active streams
-                    await AuthService().signOut();
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColours.tertiaryRed,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                        await _profileService.saveProfile(updatedPfp);
+                        if (mounted) setState(() => _profile = updatedPfp);
+                      },
                     ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(Icons.logout, color: AppColours.primaryRed),
-                      SizedBox(width: 8),
-                      Text(
-                        'Sign Out',
-                        style: TextStyle(
-                          color: AppColours.primaryRed,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                    SizedBox(height: 16),
+
+                    // name
+                    Text(
+                      _nameController.text,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    SizedBox(height: 32),
+
+                    // personal info
+                    InfoCardShell(
+                      title: 'Personal Information',
+                      hasTrailing: true,
+                      isEditing: _isPersonalEditing,
+                      onEditTapped: () {
+                        setState(() {
+                          _isPersonalEditing = true;
+                        });
+                      },
+                      onSaveTapped: _savePersonalInfo,
+                      onCancelTapped: () {
+                        setState(() {
+                          _isPersonalEditing = false;
+                          _resetForm();
+                        });
+                      },
+                      content: ProfileContent(
+                        isEditing: _isPersonalEditing,
+                        formKey: _formKey,
+                        data: personalInfoMap,
+                        nameController: _nameController,
+                        phoneController: _phoneController,
+                        dobController: _dobController,
+                        genderController: _genderController,
+                        emergencyNameController: _emergencyNameController,
+                        emergencyPhoneController: _emergencyPhoneController,
+                      ),
+                    ),
+                    SizedBox(height: 16),
+
+                    // medical info
+                    InfoCardShell(
+                      title: 'Medical Information',
+                      hasTrailing: true,
+                      isEditing: _isMedicalEditing,
+                      onEditTapped: () {
+                        setState(() {
+                          _isMedicalEditing = true;
+                        });
+                      },
+                      onSaveTapped: _saveMedicalInfo,
+                      onCancelTapped: () {
+                        setState(() {
+                          _isMedicalEditing = false;
+                          _resetForm();
+                        });
+                      },
+                      content: MedicalContent(
+                        isEditing: _isMedicalEditing,
+                        allergies: profile?.allergies ?? [],
+                        medicalConditions: profile?.medicalConditions ?? [],
+                        allergiesController: _allergiesController,
+                        medicalConditionsController:
+                            _medicalConditionsController,
+                      ),
+                    ),
+                    SizedBox(height: 16),
+
+                    // quiet hours
+                    InfoCardShell(
+                      title: 'Quiet Hours',
+                      hasTrailing: true,
+                      isEditing: _isQuietHoursEditing,
+                      onEditTapped: () {
+                        setState(() {
+                          _isQuietHoursEditing = true;
+                        });
+                      },
+                      onSaveTapped: _saveQuietHours,
+                      onCancelTapped: () {
+                        setState(() {
+                          _isQuietHoursEditing = false;
+                          _resetForm();
+                        });
+                      },
+                      content: QuietHoursContent(
+                        isEditing: _isQuietHoursEditing,
+                        startTime: _quietStartTime,
+                        endTime: _quietEndTime,
+                        onStartTimeChanged: (time) {
+                          setState(() {
+                            _quietStartTime = time;
+                          });
+                        },
+                        onEndTimeChanged: (time) {
+                          setState(() {
+                            _quietEndTime = time;
+                          });
+                        },
+                      ),
+                    ),
+                    SizedBox(height: 16),
+
+                    // settings
+                    InfoCardShell(
+                      title: 'Settings',
+                      hasTrailing: false,
+                      content: const SettingsContent(),
+                    ),
+                    const SizedBox(height: 32),
+
+                    // sign out button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          final uid = AuthService().currentUser?.uid;
+                          if (uid != null) {
+                            // clear FCM token
+                            await FcmService().clearToken(uid);
+                          }
+
+                          // back to landing screen FIRST to unmount active screens and cancel their streams
+                          Navigator.of(context).pushAndRemoveUntil(
+                            MaterialPageRoute(
+                              builder: (context) => const LandingScreen(),
+                            ),
+                            (route) => false,
+                          );
+                          
+                          // Wait for the next frame so Flutter fully disposes the active screens
+                          await Future.delayed(const Duration(milliseconds: 200));
+
+                          // THEN sign out, preventing permission-denied errors on active streams
+                          await AuthService().signOut();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColours.tertiaryRed,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Icon(Icons.logout, color: AppColours.primaryRed),
+                            SizedBox(width: 8),
+                            Text(
+                              'Sign Out',
+                              style: TextStyle(
+                                color: AppColours.primaryRed,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 32),
+                  ],
                 ),
               ),
-              const SizedBox(height: 32),
-
-              // version number
-              // Text(
-              //   'Version 1.0.0',
-              //   style: TextStyle(color: Colors.grey[500], fontSize: 14),
-              // ),
-              // const SizedBox(height: 32),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

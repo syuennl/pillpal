@@ -66,6 +66,8 @@ class HistoryRecordCard extends StatelessWidget {
               children: [
                 Text(
                   medicationName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -85,9 +87,17 @@ class HistoryRecordCard extends StatelessWidget {
                     ),
                     if (scheduledTime != null) ...[
                       const SizedBox(width: 4),
-                      Text(
-                        '• Scheduled $scheduledTime',
-                        style: TextStyle(fontSize: 13, color: Colors.grey[400]),
+                      // long scheduled time ellipsises instead of overflowing into status badge
+                      Flexible(
+                        child: Text(
+                          '• Scheduled $scheduledTime',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey[400],
+                          ),
+                        ),
                       ),
                     ],
                   ],
@@ -95,6 +105,8 @@ class HistoryRecordCard extends StatelessWidget {
               ],
             ),
           ),
+
+          const SizedBox(width: 12),
 
           // status badge
           Container(

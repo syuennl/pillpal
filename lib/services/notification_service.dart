@@ -6,6 +6,9 @@ import 'package:timezone/timezone.dart' as tz;
 
 import '../models/medication.dart';
 import '../models/enums/medication_enums.dart';
+import '../utils/globals.dart';
+import 'medication_service.dart';
+import '../widgets/reminder_dialog.dart';
 
 // wraps flutter_local_notifications
 // handles setup, permissions, scheduling, cancelling local reminders
@@ -41,15 +44,29 @@ class NotificationService {
 
     // platform init settings
     // noti icon must exist in android/app/src/main/res/mipmap — '@mipmap/ic_launcher' = default app icon
-    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidInit = AndroidInitializationSettings('@mipmap/launcher_icon');
     const initSettings = InitializationSettings(android: androidInit);
 
     await _plugin.initialize(
       initSettings,
-      onDidReceiveNotificationResponse: (response) {
+      onDidReceiveNotificationResponse: (response) async {
         // fired when the user taps a notification
         // `response.payload` can carry the medicationId so you know which med it is
-        debugPrint('Notification tapped, payload: ${response.payload}');
+        // debugPrint('Notification tapped, payload: ${response.payload}');
+        final medId = response.payload;
+        if (medId == null) return;
+
+        // fetch the medication by id
+        final med = await MedicationService().getMedication(medId);
+        if (med == null) return; // deleted meanwhile
+
+        // show the reminder dialog using the global navigator's context
+
+        // use a global navigator key to show the dialog from outside the widget tree
+        final ctx = navigatorKey.currentContext;
+        if (ctx != null) {
+          showReminderDialog(ctx, med);
+        }
       },
     );
 
@@ -62,11 +79,28 @@ class NotificationService {
       importance: Importance.max,
     );
 
-    await _plugin
+    // await _plugin
+    //     .resolvePlatformSpecificImplementation<
+    //       AndroidFlutterLocalNotificationsPlugin
+    //     >()
+    //     ?.createNotificationChannel(channel); // creates the channel
+
+    // Default channel for FCM background pushes (defined in AndroidManifest)
+    const fcmChannel = AndroidNotificationChannel(
+      'caregiver_alerts', // channel id
+      'Caregiver Alerts', // channel name
+      description: 'Alerts about your linked patient\'s missed doses',
+      importance: Importance.max,
+    );
+
+    final androidPlugin = _plugin
         .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin
-        >()
-        ?.createNotificationChannel(channel); // creates the channel
+        >();
+
+    // create the channels
+    await androidPlugin?.createNotificationChannel(channel);
+    await androidPlugin?.createNotificationChannel(fcmChannel);
 
     _initialised = true;
   }
@@ -83,11 +117,11 @@ class NotificationService {
         await android?.requestNotificationsPermission() ?? false;
 
     // request exact alarm permissions (crucial for scheduled zoned notifications)
-    try {
-      await android?.requestExactAlarmsPermission();
-    } catch (e) {
-      debugPrint('Error requesting exact alarm permission: $e');
-    }
+    // try {
+    //   await android?.requestExactAlarmsPermission();
+    // } catch (e) {
+    //   debugPrint('Error requesting exact alarm permission: $e');
+    // }
 
     return grantedNotifs;
   }
@@ -97,6 +131,16 @@ class NotificationService {
     'medication_reminders_v2',
     'Medication Reminders',
     channelDescription: 'Reminders to take your medication',
+    importance: Importance.max,
+    priority: Priority.high,
+  );
+
+  // metadata for caregiver alerts — MUST match the 'caregiver_alerts' channel
+  // created in init() and the channelId the Cloud Function sends with
+  static const _caregiverChannel = AndroidNotificationDetails(
+    'caregiver_alerts',
+    'Caregiver Alerts',
+    channelDescription: 'Alerts about your linked patient\'s missed doses',
     importance: Importance.max,
     priority: Priority.high,
   );
@@ -138,11 +182,7 @@ class NotificationService {
     }
   }
 
-  /// cancel a single scheduled notification by its id
-  Future<void> cancel(int id) => _plugin.cancel(id);
-
-  /// cancel all scheduled notifications
-  Future<void> cancelAll() => _plugin.cancelAll();
+  // --------- create id ---------
 
   // builds unique noti id frm a med and its times
   // same med + same time index -> same id, so we can cancel/replace
@@ -152,42 +192,69 @@ class NotificationService {
     // modulo ensures num x exceed size limit, *1000 creates empty space on right for the time index
   }
 
-  /// cancels all reminders for one medication (covers up to 10 times/day)
-  Future<void> cancelForMedication(Medication med) async {
-    // regenerate the exact same ids the scheduler used, cancel only those
-    for (var i = 0; i < med.scheduledTimes.length; i++) {
-      if (med.frequencyType == FrequencyType.specificDays) {
-        final days = med.selectedDays ?? [];
-        for (var d = 0; d < days.length; d++) {
-          await _plugin.cancel(_notifId(med.id, i * 100 + d));
-        }
-      } else {
-        await _plugin.cancel(_notifId(med.id, i));
-      }
-    }
+  // unique id for a med's snooze reminder
+  // normal daily reminder noti range = 0-906, this adds 999 to top it off preventing collision
+  int _snoozeId(String medicationId) {
+    return (medicationId.hashCode.abs() % 100000) * 1000 + 999;
   }
 
-  // set a reminder
-  Future<void> _schedule({
-    required int id,
-    required Medication med,
-    required tz.TZDateTime when,
-    required DateTimeComponents match,
-  }) async {
-    await _plugin.zonedSchedule(
-      // set a reminder
-      id,
-      'Time for ${med.name}', // noti title
-      'Take ${med.formattedDosage}' // noti body
-          '${med.intakeInstruction == IntakeInstruction.anytime ? '' : ' (${med.intakeInstruction.displayName})'}',
-      when, // when to fire it
-      const NotificationDetails(
-        android: _channel,
-      ), // use which channel and metadata
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-      matchDateTimeComponents: match, // repeat when
-      payload: med.id, // when user taps, knows which med
-    );
+  // -------- schedule ---------
+
+  // schedules all reminders for one medication
+  // call this after adding or editing a medication
+  Future<void> scheduleForMedication(Medication med) async {
+    // always clear this med's old reminders first
+    await cancelForMedication(med);
+
+    // "As needed" nonid to remind.
+    if (med.frequencyType == FrequencyType.asNeeded) return;
+
+    // loop thru each scheduled time
+    for (var i = 0; i < med.scheduledTimes.length; i++) {
+      final time = med.scheduledTimes[i];
+
+      switch (med.frequencyType) {
+        case FrequencyType.daily:
+          await _schedule(
+            id: _notifId(med.id, i),
+            med: med,
+            when: _nextInstanceOfTime(time),
+            match: DateTimeComponents.time, // repeats every day
+          );
+          break;
+
+        case FrequencyType.specificDays:
+          final days = med.selectedDays ?? [];
+          for (var d = 0; d < days.length; d++) {
+            final weekday = days[d]; // 1=Mon ... 7=Sun
+            await _schedule(
+              // create reminder
+              id: _notifId(
+                med.id,
+                i * 100 + d,
+              ), // include the day (i*100) and leave space for time idx
+              med: med,
+              when: _nextInstanceOfWeekdayTime(weekday, time),
+              match: DateTimeComponents
+                  .dayOfWeekAndTime, // repeats weekly on that day
+            );
+          }
+          break;
+
+        // case FrequencyType.interval:
+        //   // For now, treat it like daily so the user still gets reminders.
+        //   await _schedule(
+        //     id: _notifId(med.id, i),
+        //     med: med,
+        //     when: _nextInstanceOfTime(time),
+        //     match: DateTimeComponents.time,
+        //   );
+        //   break;
+
+        case FrequencyType.asNeeded:
+          break; // already returned above
+      }
+    }
   }
 
   // returns the next future occurrence of a given time-of-day
@@ -220,58 +287,89 @@ class NotificationService {
     return scheduled;
   }
 
-  // schedules all reminders for one medication
-  // call this after adding or editing a medication
-  Future<void> scheduleForMedication(Medication med) async {
-    // always clear this med's old reminders first
-    await cancelForMedication(med);
+  // set a reminder
+  Future<void> _schedule({
+    required int id,
+    required Medication med,
+    required tz.TZDateTime when,
+    required DateTimeComponents match,
+  }) async {
+    await _plugin.zonedSchedule(
+      id,
+      'Time for ${med.name}', // noti title
+      'Take ${med.formattedDosage}' // noti body
+          '${med.intakeInstruction == IntakeInstruction.anytime ? '' : ' (${med.intakeInstruction.displayName})'}',
+      when, // when to fire it
+      const NotificationDetails(
+        android: _channel,
+      ), // use which channel and metadata
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      matchDateTimeComponents: match, // repeat when
+      payload: med.id, // when user taps, they know which med
+    );
+  }
 
-    // "As needed" nonid to remind.
-    if (med.frequencyType == FrequencyType.asNeeded) return;
+  Future<void> scheduleSnoozeReminder(
+    Medication med,
+    TimeOfDay originalTime,
+  ) async {
+    await _plugin.zonedSchedule(
+      _snoozeId(med.id), // dedicated id range for snoozes so it doesn't clash
+      'Time for ${med.name}',
+      'Take ${med.formattedDosage} (snoozed)'
+          '${med.intakeInstruction == IntakeInstruction.anytime ? '' : ' (${med.intakeInstruction.displayName})'}',
 
-    // loop thru each scheduled time
+      tz.TZDateTime.now(tz.local).add(const Duration(minutes: 10)),
+      const NotificationDetails(android: _channel),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      // no matchDateTimeComponents, fires once not daily
+      payload: med.id,
+    );
+  }
+
+  // -------- cancel ---------
+
+  // cancel a single scheduled notification by its id
+  Future<void> cancel(int id) => _plugin.cancel(id);
+
+  // cancel all scheduled notifications regardless of medication
+  // when user signed out / deletes app
+  Future<void> cancelAll() => _plugin.cancelAll();
+
+  // cancels all reminders for one medication (covers up to 10 times/day)
+  Future<void> cancelForMedication(Medication med) async {
+    // regenerate the exact same ids the scheduler used, cancel only those
     for (var i = 0; i < med.scheduledTimes.length; i++) {
-      final time = med.scheduledTimes[i];
-
-      switch (med.frequencyType) {
-        case FrequencyType.daily:
-          await _schedule(
-            id: _notifId(med.id, i),
-            med: med,
-            when: _nextInstanceOfTime(time),
-            match: DateTimeComponents.time, // repeats every day
-          );
-          break;
-
-        case FrequencyType.specificDays:
-          final days = med.selectedDays ?? [];
-          for (var d = 0; d < days.length; d++) {
-            final weekday =
-                days[d]; // 1=Mon ... 7=Sun 
-            await _schedule( // create reminder
-              id: _notifId(med.id, i * 100 + d), // include the day (i*100) and leave space for time idx
-              med: med,
-              when: _nextInstanceOfWeekdayTime(weekday, time),
-              match: DateTimeComponents
-                  .dayOfWeekAndTime, // repeats weekly on that day
-            );
-          }
-          break;
-
-        // case FrequencyType.interval:
-        //   // For now, treat it like daily so the user still gets reminders.
-        //   await _schedule(
-        //     id: _notifId(med.id, i),
-        //     med: med,
-        //     when: _nextInstanceOfTime(time), 
-        //     match: DateTimeComponents.time,
-        //   );
-        //   break;
-
-        case FrequencyType.asNeeded:
-          break; // already returned above
+      if (med.frequencyType == FrequencyType.specificDays) {
+        final days = med.selectedDays ?? [];
+        for (var d = 0; d < days.length; d++) {
+          await _plugin.cancel(_notifId(med.id, i * 100 + d));
+        }
+      } else {
+        await _plugin.cancel(_notifId(med.id, i));
       }
     }
   }
-}
 
+  // --------- show ---------
+
+  Future<void> showRawNotification({
+    required String title,
+    required String body,
+    // which channel to post under; defaults to the medication reminder channel
+    AndroidNotificationDetails channel = _channel,
+  }) async {
+    await _plugin.show(
+      // requires a unique integer ID for every active notification
+      DateTime.now().millisecondsSinceEpoch ~/ 1000, // unique-ish id
+      title,
+      body,
+      NotificationDetails(android: channel),
+    );
+  }
+
+  // exposes the channels so callers (e.g. the FCM handler) can pick the
+  // correct channel for a foreground notification
+  static const AndroidNotificationDetails caregiverChannel = _caregiverChannel;
+  static const AndroidNotificationDetails defaultChannel = _channel;
+}

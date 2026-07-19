@@ -20,12 +20,8 @@ class AuthService {
       'email': email,
       'name': name,
       'phone': null,
-      'fcmToken': '', // update this later, for notifications
-      // 'quietHoursEnabled': false,
-      // 'linkedCaregiverUids': [],
-      // 'linkedPatientUids': [],
+      'fcmToken': '',
       'createdAt': FieldValue.serverTimestamp(),
-      // 'updatedAt': FieldValue.serverTimestamp(),
     });
   }
 

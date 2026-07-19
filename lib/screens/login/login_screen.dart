@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import '../../utils/app_colours.dart';
 import '../main_wrapper.dart';
 import 'forgot_password_screen.dart';
+
 import '../../widgets/login/auth_text_field.dart';
 import '../../widgets/login/auth_scaffold.dart';
 import '../../widgets/login/auth_button.dart';
+
 import '../../services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -75,16 +77,20 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
 
+
       // navigate to main wrapper if login successful
-      Navigator.pushAndRemoveUntil( // .push but for auth
+      Navigator.pushAndRemoveUntil(
+        // .push but for auth
         context,
-        MaterialPageRoute(builder: (context) => const MainWrapper()), // push main wrapper onto stack
-        (route) => false, // remove all screens tht came bfr to prevent back btn frm navigating user back to login page
+        MaterialPageRoute(
+          builder: (context) => const MainWrapper(),
+        ), // push main wrapper onto stack
+        (route) =>
+            false, // remove all screens tht came bfr to prevent back btn frm navigating user back to login page
       );
     } on FirebaseAuthException catch (e) {
       String message;
-      // Newer Firebase returns 'invalid-credential' for both wrong email
-      // AND wrong password (email-enumeration protection). Handle all cases.
+      // newer Firebase returns 'invalid-credential' for both wrong email & pswrd
       if (e.code == 'invalid-credential' ||
           e.code == 'user-not-found' ||
           e.code == 'wrong-password') {

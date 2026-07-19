@@ -99,7 +99,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
               // send code button
               AuthButton(
-                label: 'Send Verification Code',
+                label: 'Send Verification Email',
                 onPressed: _handleSendCode,
                 isLoading: _isLoading,
               ),

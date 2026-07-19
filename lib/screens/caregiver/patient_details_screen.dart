@@ -212,13 +212,26 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
           ),
           TextButton(
             onPressed: () async {
+              final relId =
+                  _relationshipId!; // safe as _relationshipId is not null here
+
+              // pop the dialog
               Navigator.pop(context);
+
+              // pop the Patient Details Screen immediately
+              // to disposes all active streams (medications/logs) bfr revoke access
+              if (context.mounted) {
+                Navigator.pop(context);
+              }
+
+              // wait for route pop animation to completely finish 
+              // so that the StreamBuilders are completely disposed bfr access is revoked
+              await Future.delayed(const Duration(milliseconds: 400));
+
               try {
-                await _caregiverService.unlink(_relationshipId!);
-                if (context.mounted) {
-                  Navigator.pop(context); // Go back to caregiver screen
-                }
+                await _caregiverService.unlink(relId);
               } catch (e) {
+                debugPrint('Error unlinking patient: $e');
                 if (context.mounted) {
                   ScaffoldMessenger.of(
                     context,
@@ -255,7 +268,7 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen> {
                 ),
               ],
       ),
-      
+
       body: _isLoading
           ? const Center(
               child: CircularProgressIndicator(color: AppColours.primaryGreen),

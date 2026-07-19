@@ -57,9 +57,10 @@ class AdherenceOverviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isGood = adherenceRate >= 80;
-    final Color barColor = isGood
+    final Color barColor = adherenceRate >= 80
         ? AppColours.primaryGreen
+        : adherenceRate > 50
+        ? AppColours.primaryOrange
         : AppColours.primaryRed;
 
     return Column(

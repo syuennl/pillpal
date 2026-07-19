@@ -192,13 +192,19 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
                                 borderRadius: BorderRadius.circular(16),
                               ),
                               child: Center(
-                                child: Text(
-                                  _myInviteCode?.split('').join('  ') ??
-                                      '- - - - - -',
-                                  style: const TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 2,
+                                // scale code down on narrow phones so always stays on a single line
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    _myInviteCode?.split('').join('  ') ??
+                                        '- - - - - -',
+                                    maxLines: 1,
+                                    softWrap: false,
+                                    style: const TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 2,
+                                    ),
                                   ),
                                 ),
                               ),

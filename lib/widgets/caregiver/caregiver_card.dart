@@ -23,7 +23,7 @@ class CaregiverCard extends StatelessWidget {
           .doc(caregiverRelationship.caregiverId)
           .get(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
           // loading state
           return Container(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -44,7 +44,11 @@ class CaregiverCard extends StatelessWidget {
           );
         }
 
-        final data = snapshot.data!.data() as Map<String, dynamic>?;
+        Map<String, dynamic>? data;
+        if (snapshot.hasData && snapshot.data!.exists) {
+           data = snapshot.data!.data() as Map<String, dynamic>?;
+        }
+        
         final name = data?['name'] as String? ?? 'Unknown Caregiver';
         final phone = data?['phone'] as String?;
 

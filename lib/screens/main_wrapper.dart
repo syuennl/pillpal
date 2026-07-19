@@ -6,6 +6,9 @@ import 'history_screen.dart';
 import 'caregiver/caregiver_screen.dart';
 import 'profile/profile_screen.dart';
 
+import '../services/auth_service.dart';
+import '../services/fcm_service.dart';
+
 class MainWrapper extends StatefulWidget {
   const MainWrapper({super.key});
 
@@ -15,6 +18,17 @@ class MainWrapper extends StatefulWidget {
 
 class _MainWrapperState extends State<MainWrapper> {
   int _selectedIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // set up FCM here to avoid race condition
+    // where Firestore receives a token update bfr Firebase Auth fully synced the new session
+    final uid = AuthService().currentUser?.uid;
+    if (uid != null) {
+      FcmService().setup(uid);
+    }
+  }
 
   void _onItemTapped(int index) {
     setState(() {
@@ -33,8 +47,10 @@ class _MainWrapperState extends State<MainWrapper> {
     ];
 
     return PopScope(
-      canPop: _selectedIndex == 0, // can only pop (exit app) when on home screen
-      onPopInvokedWithResult: (didPop, result) { // runs when back btn clicked/screen swiped
+      canPop:
+          _selectedIndex == 0, // can only pop (exit app) when on home screen
+      onPopInvokedWithResult: (didPop, result) {
+        // runs when back btn clicked/screen swiped
         if (didPop) return; // if back action closed the app, stop here
         _onItemTapped(0); // if not, go back to home screen
       },

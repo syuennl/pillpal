@@ -4,11 +4,12 @@ import 'firebase_options.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:pillpal/services/notification_service.dart';
 import 'screens/login/landing_screen.dart';
+import 'utils/globals.dart';
 
 void main() async {
-  await dotenv.load(fileName: ".env");
-
   WidgetsFlutterBinding.ensureInitialized();
+
+  await dotenv.load(fileName: ".env");
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await NotificationService().init();
   runApp(const PillPalApp());
@@ -21,6 +22,7 @@ class PillPalApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'PillPal',
+      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       home: const LandingScreen(),
     );

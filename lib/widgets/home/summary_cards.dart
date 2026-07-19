@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-// import 'package:pillpal/models/reminder.dart';
 import 'package:pillpal/utils/app_colours.dart';
 
 class SummaryCards extends StatelessWidget {

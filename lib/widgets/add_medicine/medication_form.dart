@@ -43,7 +43,6 @@ class _MedicationFormState extends State<MedicationForm> {
   late final TextEditingController _quantityController;
   late final TextEditingController _scheduledTimesController;
   late final TextEditingController _expiryDateController;
-  // late final TextEditingController _intervalDaysController;
 
   MedicationType _selectedType = MedicationType.pill;
   String? _imagePath;
@@ -174,7 +173,6 @@ class _MedicationFormState extends State<MedicationForm> {
     _quantityController.dispose();
     _scheduledTimesController.dispose();
     _expiryDateController.dispose();
-    // _intervalDaysController.dispose();
     super.dispose();
   }
 
@@ -279,7 +277,6 @@ class _MedicationFormState extends State<MedicationForm> {
         : _strengthUnitController.text.trim();
 
     final quantity = double.tryParse(_quantityController.text) ?? 30.0;
-    // final intervalDays = int.tryParse(_intervalDaysController.text);
 
     final scheduledTimes = _parseScheduledTimes(_scheduledTimesController.text);
     final expiryDate = _parseExpiryDate(_expiryDateController.text);
@@ -300,7 +297,6 @@ class _MedicationFormState extends State<MedicationForm> {
           dosageUnit: dosageUnit,
           frequencyType: _selectedFrequency,
           selectedDays: _selectedDays.toList(),
-          // intervalDays: intervalDays,
           strengthValue: strengthValue,
           strengthUnit: strengthUnit,
           scheduledTimes: scheduledTimes,
@@ -346,7 +342,6 @@ class _MedicationFormState extends State<MedicationForm> {
           dosageUnit: dosageUnit,
           frequencyType: _selectedFrequency,
           selectedDays: _selectedDays.toList(),
-          // intervalDays: intervalDays,
           strengthValue: strengthValue,
           strengthUnit: strengthUnit,
           scheduledTimes: scheduledTimes,
@@ -567,7 +562,6 @@ class _MedicationFormState extends State<MedicationForm> {
                   setState(() {
                     _selectedFrequency = newFreq;
                     _selectedDays.clear();
-                    // _intervalDaysController.clear();
                   });
                 },
               ),
@@ -590,45 +584,6 @@ class _MedicationFormState extends State<MedicationForm> {
                   },
                 ),
               ],
-              // interval days
-              // else if (_selectedFrequency == FrequencyType.interval) ...[
-              //   const SizedBox(height: 24),
-              //   Row(
-              //     children: [
-              //       const Text(
-              //         'Every',
-              //         style: TextStyle(
-              //           fontSize: 14,
-              //           fontWeight: FontWeight.w500,
-              //         ),
-              //       ),
-              //       const SizedBox(width: 12),
-
-              //       SizedBox(
-              //         width: 60,
-              //         child: FormTextField(
-              //           controller: _intervalDaysController,
-              //           keyboardType: TextInputType.number,
-              //           validator: (v) {
-              //             if (_selectedFrequency != FrequencyType.interval)
-              //               return null; // skip if not interval
-              //             return _validateNumberFields(v);
-              //           },
-              //           hint: '1',
-              //         ),
-              //       ),
-              //       const SizedBox(width: 12),
-
-              //       const Text(
-              //         'day(s)',
-              //         style: TextStyle(
-              //           fontSize: 14,
-              //           fontWeight: FontWeight.w500,
-              //         ),
-              //       ),
-              //     ],
-              //   ),
-              // ],
               SizedBox(height: 10),
 
               // scheduled times

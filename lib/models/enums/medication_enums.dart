@@ -54,7 +54,6 @@ enum IntakeInstruction {
 enum FrequencyType {
   daily(displayName: 'Daily'),
   specificDays(displayName: 'Specific Days'),
-  // interval(displayName: 'Every X Days'),
   asNeeded(displayName: 'As Needed');
 
   final String displayName;
@@ -82,12 +81,6 @@ enum FrequencyType {
             .where((name) => name.isNotEmpty)
             .join(', ');
         return 'Every $names';
-
-      // case FrequencyType.interval:
-      //   if (intervalDays == null || intervalDays <= 0) {
-      //     return displayName;
-      //   }
-      //   return 'Every $intervalDays day${intervalDays == 1 ? '' : 's'}';
 
       default:
         return displayName;

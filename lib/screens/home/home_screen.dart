@@ -401,18 +401,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           const SizedBox(width: 8),
-          // IconButton(
-          //   icon: const Icon(Icons.bug_report, color: AppColours.primaryGreen),
-          //   onPressed: () async {
-          //     await NotificationService().scheduleTestNotification();
-          //     ScaffoldMessenger.of(context).showSnackBar(
-          //       const SnackBar(
-          //         content: Text('Test notification scheduled in 5s!'),
-          //       ),
-          //     );
-          //   },
-          // ),
-          // const SizedBox(width: 8),
         ],
       ),
 

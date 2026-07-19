@@ -9,7 +9,6 @@ class EmptyState extends StatelessWidget {
       width: double.infinity,
       alignment: Alignment.center,
       decoration: const BoxDecoration(
-        // color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
@@ -41,8 +40,6 @@ class EmptyState extends StatelessWidget {
               fontWeight: FontWeight.w500,
             ),
           ),
-
-          // SizedBox(height: 48), // comfortable spacing for bottom layout
         ],
       ),
     );

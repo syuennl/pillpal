@@ -4,7 +4,6 @@ import '../../utils/app_colours.dart';
 
 import '../../widgets/common/dashboard_header.dart';
 import '../../widgets/caregiver/caregiver_tab_bar.dart';
-// import '../../widgets/caregiver/notification_alert_card.dart';
 import '../../widgets/caregiver/patient_card.dart';
 import '../../widgets/caregiver/caregiver_card.dart';
 import 'add_patient_screen.dart';
@@ -88,16 +87,6 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
               children: [
                 // patients tab
                 if (_activeTab == 'My Patients') ...[
-                  // notification alert
-                  // NotificationAlertCard(
-                  //   isEnabled: _notificationsEnabled,
-                  //   onEnablePressed: () {
-                  //     setState(() {
-                  //       _notificationsEnabled = true;
-                  //     });
-                  //   },
-                  // ),
-                  // const SizedBox(height: 4),
                   StreamBuilder<List<CaregiverRelationship>>(
                     stream: myPatients,
                     builder: (context, snapshot) {

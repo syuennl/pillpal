@@ -143,12 +143,6 @@ class LandingScreen extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 24),
-
-                // footer
-                // const Text(
-                //   'Managing medications made simple',
-                //   style: TextStyle(fontSize: 14, color: Colors.white70),
-                // ),
               ],
             ),
           ),

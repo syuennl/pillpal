@@ -98,15 +98,6 @@ class SideEffectsCard extends StatelessWidget {
                       ),
                     ],
                   ),
-
-                  // Text(
-                  //   'Contact your healthcare provider if you experience severe side effects.',
-                  //   style: TextStyle(
-                  //     fontSize: 12,
-                  //     color: Colors.grey[600],
-                  //     height: 1.5,
-                  //   ),
-                  // ),
                   const SizedBox(height: 20),
 
                   // medication diary button

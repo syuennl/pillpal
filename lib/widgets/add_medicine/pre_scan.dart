@@ -4,12 +4,10 @@ import 'package:pillpal/utils/app_colours.dart';
 class PreScan extends StatelessWidget {
   final VoidCallback onScanCamera;
   final VoidCallback onScanGallery;
-  // final VoidCallback onScanMultiple;
   const PreScan({
     super.key,
     required this.onScanCamera,
     required this.onScanGallery,
-    // required this.onScanMultiple,
   });
 
   // opens the bottom sheet with the three source options
@@ -60,18 +58,6 @@ class PreScan extends StatelessWidget {
                     onScanGallery();
                   },
                 ),
-
-                // gallery (multiple images)
-                // _option(
-                //   icon: Icons.collections_outlined,
-                //   label: 'Upload Multiple Photos',
-                //   subtitle: 'Front, back & sides for best results',
-                //   onTap: () {
-                //     Navigator.pop(sheetContext);
-                //     onScanMultiple();
-                //   },
-                // ),
-                // const SizedBox(height: 12),
               ],
             ),
           ),
@@ -205,33 +191,6 @@ class PreScan extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-
-            //       SizedBox(
-            //         width: double.infinity,
-            //         child: ElevatedButton(
-            //           onPressed: onStartScanning,
-            //           style: ElevatedButton.styleFrom(
-            //             backgroundColor: AppColours.primaryGreen,
-            //             elevation: 0,
-            //             padding: const EdgeInsets.symmetric(vertical: 16),
-            //             shape: RoundedRectangleBorder(
-            //               borderRadius: BorderRadius.circular(16),
-            //             ),
-            //           ),
-            //           child: const Text(
-            //             'Start Scanning',
-            //             style: TextStyle(
-            //               color: Colors.white,
-            //               fontSize: 16,
-            //               fontWeight: FontWeight.w600,
-            //             ),
-            //           ),
-            //         ),
-            //       ),
-            //     ],
-            //   ),
-            // ),
-            // const SizedBox(height: 24),
 
             // tips Card
             Container(

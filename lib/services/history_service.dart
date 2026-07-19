@@ -50,7 +50,6 @@ class HistoryService {
 
       // format the date header
       final dateHeader = _formatDateHeader(log.date);
-      // final dateKey = _dateHeader(log.date);
 
       // create the record
       final record = HistoryRecord(

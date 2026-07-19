@@ -10,7 +10,7 @@ class Medication {
   final String? imagePath;
 
   // how many pills left, wht abt syrups tho, how many ml or how many bottles...
-  final int quantity;
+  final double quantity;
   final double dosageAmount; // how much per time
   final String dosageUnit;
 
@@ -18,7 +18,7 @@ class Medication {
   final List<int>? selectedDays; // e.g. [1, 2, 4] for Mon, Tue, Thu
   // final int? intervalDays; // e.g. 3 for "Every 3 days"
 
-  final int? strengthValue; // strength of pill per intake (mg, etc.)
+  final double? strengthValue; // strength of pill per intake (mg, etc.)
   final String? strengthUnit;
 
   final List<TimeOfDay> scheduledTimes;
@@ -54,9 +54,15 @@ class Medication {
   });
 
   String get formattedDosage => '$dosageAmount $dosageUnit';
-  String get formattedStrength => strengthValue == null || strengthUnit == null
-      ? ''
-      : '$strengthValue $strengthUnit';
+  String get formattedStrength {
+    if (strengthValue == null || strengthUnit == null) return '';
+    final valStr = strengthValue!.toString().replaceAll(RegExp(r'\.0$'), ''); // strips .0
+    return '$valStr $strengthUnit';
+  }
+  
+  String get formattedQuantity {
+    return quantity.toString().replaceAll(RegExp(r'\.0$'), '');
+  }
   int get timesPerDay => scheduledTimes.length;
 
   String get frequencyDisplay => frequencyType.toDisplayString(
@@ -70,13 +76,13 @@ class Medication {
     String? name,
     MedicationType? type,
     String? imagePath,
-    int? quantity,
+    double? quantity,
     double? dosageAmount,
     String? dosageUnit,
     FrequencyType? frequencyType,
     List<int>? selectedDays,
     // int? intervalDays,
-    int? strengthValue,
+    double? strengthValue,
     String? strengthUnit,
     List<TimeOfDay>? scheduledTimes,
     IntakeInstruction? intakeInstruction,
@@ -166,7 +172,7 @@ class Medication {
       ),
       imagePath: map['imagePath'] as String?,
 
-      quantity: map['quantity'] as int,
+      quantity: (map['quantity'] as num).toDouble(),
       dosageAmount: (map['dosageAmount'] as num)
           .toDouble(), // Firestore may store a whole num (e.g., 5) as an int, so read as num then convert to double
       dosageUnit: map['dosageUnit'] as String,
@@ -184,7 +190,7 @@ class Medication {
               .toList(),
       // intervalDays: map['intervalDays'] as int?,
 
-      strengthValue: map['strengthValue'] as int?,
+      strengthValue: (map['strengthValue'] as num?)?.toDouble(),
       strengthUnit: map['strengthUnit'] as String?,
 
       scheduledTimes: (map['scheduledTimes'] as List<dynamic>)
@@ -195,7 +201,7 @@ class Medication {
       ),
 
       treatmentStartDate: (map['treatmentStartDate'] as Timestamp)
-          .toDate(), // timestamp -? datetime
+          .toDate(), // timestamp -> datetime
       treatmentEndDate: (map['treatmentEndDate'] as Timestamp?)?.toDate(),
       expiryDate: (map['expiryDate'] as Timestamp?)?.toDate(),
       aiSummary: map['aiSummary'] as String?,

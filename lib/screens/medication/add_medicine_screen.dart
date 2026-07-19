@@ -46,23 +46,68 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
 
   // capture from camera
   Future<void> _scanFromCamera() async {
-    final image = await _picker.pickImage(
-      source: ImageSource.camera,
-      imageQuality: 70, // shrink so the upload isn't slow
-    );
-    if (image == null) return; // user backed out
-    await _runScan([image.path]);
-  }
+    List<String> imagePaths = [];
 
-  // pick one photo from gallery
-  // Future<void> _scanFromGallery() async {
-  //   final image = await _picker.pickImage(
-  //     source: ImageSource.gallery,
-  //     imageQuality: 70,
-  //   );
-  //   if (image == null) return;
-  //   await _runScan([image.path]);
-  // }
+    while (true) {
+      final image = await _picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 70, // shrink so the upload isn't slow
+      );
+
+      if (image == null) break; // user backed out of the camera
+
+      imagePaths.add(image.path);
+
+      if (!mounted) return;
+
+      // ask if they want to take another photo
+      final addAnother = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text('Photo Captured'),
+          content: Text(
+            'You have captured ${imagePaths.length} photo(s). Would you like to take another photo of a different side of the label?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text(
+                'Scan Now',
+                style: TextStyle(
+                  color: AppColours.primaryGreen,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColours.primaryGreen,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                'Take Another',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      );
+
+      if (addAnother != true) break;
+    }
+
+    if (imagePaths.isNotEmpty) {
+      await _runScan(imagePaths);
+    }
+  }
 
   // pick from gallery
   Future<void> _scanFromGallery() async {
@@ -93,6 +138,8 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
         Icons.check,
       );
     } catch (e) {
+      debugPrint('OCR ERROR: $e');
+
       if (!mounted) return;
       // scan failed, still let the user fill the form manually
       setState(() {
@@ -102,11 +149,13 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
       });
       _pulseController.stop();
 
-      _showSnack(
-        'Could not read the label. Please enter the details manually.',
-        AppColours.primaryRed,
-        Icons.error_outline,
-      );
+      // not medication photo detected
+      final message = e is NotAMedicationException
+          ? "This doesn't look like a medication package. "
+                'Please enter the details manually.'
+          : 'Could not read the label. Please enter the details manually.';
+
+      _showSnack(message, AppColours.primaryRed, Icons.error_outline);
     }
   }
 

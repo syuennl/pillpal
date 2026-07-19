@@ -202,7 +202,7 @@ class MedicationScreen extends StatelessWidget {
                                       child: SquareMedicationItem(
                                         medName: m.name,
                                         medQuantity:
-                                            '${m.quantity} ${m.dosageUnit}',
+                                            '${m.formattedQuantity} ${m.dosageUnit}',
                                         medIcon:
                                             MedicationType.others.filledIcon,
                                         onTap: () => selectMedication(m),

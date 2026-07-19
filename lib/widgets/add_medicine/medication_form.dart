@@ -101,9 +101,10 @@ class _MedicationFormState extends State<MedicationForm> {
     _nameController.text = med.name;
     _dosageAmountController.text = med.dosageAmount.toString();
     _dosageUnitController.text = med.dosageUnit;
-    _strengthValueController.text = med.strengthValue?.toString() ?? '';
+    _strengthValueController.text =
+        med.strengthValue?.toString().replaceAll(RegExp(r'\.0$'), '') ?? '';
     _strengthUnitController.text = med.strengthUnit ?? '';
-    _quantityController.text = med.quantity.toString();
+    _quantityController.text = med.formattedQuantity;
     _scheduledTimesController.text = med.scheduledTimes
         .map(
           (t) =>
@@ -128,9 +129,11 @@ class _MedicationFormState extends State<MedicationForm> {
     _nameController.text = s.name ?? '';
     _dosageAmountController.text = s.dosageAmount?.toString() ?? '';
     _dosageUnitController.text = s.dosageUnit ?? '';
-    _strengthValueController.text = s.strengthValue?.toString() ?? '';
+    _strengthValueController.text =
+        s.strengthValue?.toString().replaceAll(RegExp(r'\.0$'), '') ?? '';
     _strengthUnitController.text = s.strengthUnit ?? '';
-    _quantityController.text = s.quantity?.toString() ?? '';
+    _quantityController.text =
+        s.quantity?.toString().replaceAll(RegExp(r'\.0$'), '') ?? '';
     _scheduledTimesController.text = s.times?.join(', ') ?? '';
     _expiryDateController.text = _formatScanDate(s.expiryDate);
 
@@ -270,12 +273,12 @@ class _MedicationFormState extends State<MedicationForm> {
         ? 'tablet'
         : _dosageUnitController.text.trim();
 
-    final strengthValue = int.tryParse(_strengthValueController.text);
+    final strengthValue = double.tryParse(_strengthValueController.text);
     final strengthUnit = _strengthUnitController.text.trim().isEmpty
         ? null
         : _strengthUnitController.text.trim();
 
-    final quantity = int.tryParse(_quantityController.text) ?? 30;
+    final quantity = double.tryParse(_quantityController.text) ?? 30.0;
     // final intervalDays = int.tryParse(_intervalDaysController.text);
 
     final scheduledTimes = _parseScheduledTimes(_scheduledTimesController.text);
@@ -452,36 +455,6 @@ class _MedicationFormState extends State<MedicationForm> {
                   setState(() => _imagePath = newPath);
                 },
               ),
-              // Container(
-              //   padding: const EdgeInsets.all(32),
-              //   decoration: BoxDecoration(
-              //     color: AppColours.textboxGrey,
-              //     borderRadius: BorderRadius.circular(12),
-              //     border: Border.all(
-              //       color: Colors.grey[200]!,
-              //       style: BorderStyle.solid,
-              //     ), // TODO: a dashed package can be added later
-              //   ),
-              //   child: Column(
-              //     children: [
-              //       Icon(
-              //         Icons.file_upload_outlined,
-              //         size: 32,
-              //         color: Colors.grey[400],
-              //       ),
-              //       const SizedBox(height: 8),
-              //       Text(
-              //         'Click to upload a photo',
-              //         style: TextStyle(color: Colors.grey[700], fontSize: 14),
-              //       ),
-              //       const SizedBox(height: 4),
-              //       Text(
-              //         'PNG, JPG up to 10MB',
-              //         style: TextStyle(color: Colors.grey[500], fontSize: 12),
-              //       ),
-              //     ],
-              //   ),
-              // ),
               SizedBox(height: 10),
 
               // dosage
@@ -690,12 +663,10 @@ class _MedicationFormState extends State<MedicationForm> {
                     }
                     final hour = int.tryParse(t[0]);
                     final minute = int.tryParse(t[1]);
-                    if (hour == null ||
-                        minute == null ||
-                        hour < 0 ||
-                        hour > 23 ||
-                        minute < 0 ||
-                        minute > 59) {
+                    if (hour == null || minute == null) {
+                      return 'Use HH:MM (e.g. 08:00, 21:00)';
+                    }
+                    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
                       return 'Use HH:MM (e.g. 08:00, 21:00)';
                     }
                   }

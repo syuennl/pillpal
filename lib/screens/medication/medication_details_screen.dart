@@ -31,10 +31,10 @@ class MedicationDetailsScreen extends StatelessWidget {
     return DateFormat('MMM d, yyyy').format(date);
   }
 
-  void _showDeleteDialog(BuildContext context, Medication med) {
+  void _showDeleteDialog(BuildContext parentContext, Medication med) {
     showDialog(
-      context: context,
-      builder: (BuildContext context) {
+      context: parentContext,
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
           backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
@@ -48,7 +48,7 @@ class MedicationDetailsScreen extends StatelessWidget {
           actions: [
             // cancel button
             TextButton(
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () => Navigator.of(dialogContext).pop(),
               child: const Text(
                 'Cancel',
                 style: TextStyle(
@@ -62,16 +62,19 @@ class MedicationDetailsScreen extends StatelessWidget {
             TextButton(
               onPressed: () async {
                 try {
-                  await NotificationService().cancelForMedication(med);
-                  await MedicationService().deleteMedication(med.id);
+                  // capture the messenger before popping or doing async work
+                  final messenger = ScaffoldMessenger.of(parentContext);
 
-                  if (!context.mounted) return;
-                  Navigator.of(context).pop(); // pop dialog
+                  // pop the dialog immediately to prevent race conditions with the stream update
+                  Navigator.of(dialogContext).pop();
+
+                  await NotificationService().cancelForMedication(med);
+                  await MedicationService().deleteMedication(med);
 
                   // show success SnackBar
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  messenger.showSnackBar(
                     SnackBar(
-                      content: Text('${medication.name} deleted successfully'),
+                      content: Text('${med.name} deleted successfully'),
                       backgroundColor: AppColours.primaryGreen,
                       behavior: SnackBarBehavior.floating,
                       shape: RoundedRectangleBorder(
@@ -80,9 +83,7 @@ class MedicationDetailsScreen extends StatelessWidget {
                     ),
                   );
                 } catch (e) {
-                  if (!context.mounted) return;
-                  Navigator.of(context).pop(); // pop dialog
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  ScaffoldMessenger.of(parentContext).showSnackBar(
                     SnackBar(content: Text('Could not delete: $e')),
                   );
                 }
@@ -130,7 +131,10 @@ class MedicationDetailsScreen extends StatelessWidget {
 
         // adherence logs
         return StreamBuilder<List<AdherenceLog>>(
-          stream: AdherenceLogService().streamLogsForMedication(med.id),
+          stream: AdherenceLogService().streamLogsForMedication(
+            med.userId,
+            med.id,
+          ),
           builder: (context, logSnap) {
             final medLogs = logSnap.data ?? [];
 
@@ -219,27 +223,49 @@ class MedicationDetailsScreen extends StatelessWidget {
                         ? ClipRRect(
                             // image
                             borderRadius: BorderRadius.circular(24),
-                            child: Image.file(
-                              File(med.imagePath!),
-                              height: 200,
-                              width: double.infinity,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Container(
-                                height: 200,
-                                width: double.infinity,
-                                decoration: BoxDecoration(
-                                  color: Colors.grey[300],
-                                  borderRadius: BorderRadius.circular(24),
-                                ),
-                                child: const Center(
-                                  child: Icon(
-                                    Icons.broken_image_outlined,
-                                    size: 48,
-                                    color: Colors.grey,
+                            child: med.imagePath!.startsWith('http')
+                                ? Image.network(
+                                    med.imagePath!,
+                                    height: 200,
+                                    width: double.infinity,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Container(
+                                      height: 200,
+                                      width: double.infinity,
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[300],
+                                        borderRadius: BorderRadius.circular(24),
+                                      ),
+                                      child: const Center(
+                                        child: Icon(
+                                          Icons.broken_image_outlined,
+                                          size: 48,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                : Image.file(
+                                    File(med.imagePath!),
+                                    height: 200,
+                                    width: double.infinity,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Container(
+                                      height: 200,
+                                      width: double.infinity,
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[300],
+                                        borderRadius: BorderRadius.circular(24),
+                                      ),
+                                      child: const Center(
+                                        child: Icon(
+                                          Icons.broken_image_outlined,
+                                          size: 48,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ),
-                            ),
                           )
                         : Container(
                             // placeholder
@@ -278,7 +304,7 @@ class MedicationDetailsScreen extends StatelessWidget {
                           // dosage info
                           Text(
                             med.strengthValue != null
-                                ? '${med.dosageAmount} ${med.dosageUnit} (${med.strengthValue} ${med.strengthUnit}) per intake'
+                                ? '${med.dosageAmount} ${med.dosageUnit} (${med.formattedStrength}) per intake'
                                 : '${med.dosageAmount} ${med.dosageUnit} per intake',
                             style: TextStyle(
                               fontSize: 16,
@@ -315,7 +341,8 @@ class MedicationDetailsScreen extends StatelessWidget {
                           // quantity
                           DetailInfoRow(
                             label: 'Quantity',
-                            value: '${med.quantity} ${med.dosageUnit}(s)',
+                            value:
+                                '${med.formattedQuantity} ${med.dosageUnit}(s)',
                           ),
 
                           // expiry date

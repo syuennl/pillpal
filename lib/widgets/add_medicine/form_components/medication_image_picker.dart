@@ -109,23 +109,40 @@ class MedicationImagePicker extends StatelessWidget {
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(24),
-          child: Image.file(
-            File(imagePath!),
-            height: 200,
-            width: double.infinity,
-            fit: BoxFit.cover,
-            // if the file is missing/unreadable, fall back to placeholder
-            errorBuilder: (_, __, ___) => Container(
-              width: double.infinity,
-              height: 200,
-              color: Colors.grey[200],
-              child: Icon(
-                Icons.broken_image_outlined,
-                size: 44,
-                color: Colors.grey[500],
-              ),
-            ),
-          ),
+          child: imagePath!.startsWith('http')
+              ? Image.network(
+                  imagePath!,
+                  height: 200,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    width: double.infinity,
+                    height: 200,
+                    color: Colors.grey[200],
+                    child: Icon(
+                      Icons.broken_image_outlined,
+                      size: 44,
+                      color: Colors.grey[500],
+                    ),
+                  ),
+                )
+              : Image.file(
+                  File(imagePath!),
+                  height: 200,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  // if the file is missing/unreadable, fall back to placeholder
+                  errorBuilder: (_, __, ___) => Container(
+                    width: double.infinity,
+                    height: 200,
+                    color: Colors.grey[200],
+                    child: Icon(
+                      Icons.broken_image_outlined,
+                      size: 44,
+                      color: Colors.grey[500],
+                    ),
+                  ),
+                ),
         ),
 
         // remove button (top-right)

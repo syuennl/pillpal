@@ -87,7 +87,7 @@ class RoundMedicationList extends StatelessWidget {
             const SizedBox(height: 12),
 
             Text(
-              '${med.quantity} ${med.dosageUnit}',
+              '${med.formattedQuantity} ${med.dosageUnit}',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,

@@ -23,7 +23,7 @@ class MedicationColumn extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 12.0),
               child: HorizontalMedicationItem(
                 medName: m.name,
-                medQuantity: '${m.quantity} ${m.dosageUnit}',
+                medQuantity: '${m.formattedQuantity} ${m.dosageUnit}',
                 medIcon: m.type.filledIcon,
                 onTap: () => onMedicationTap(m),
               ),

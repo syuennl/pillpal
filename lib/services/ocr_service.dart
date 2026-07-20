@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:http/http.dart' as http;
 
 class ScannedMedication {
   final String? name;
@@ -119,28 +118,12 @@ class OcrService {
 
   static Future<ScannedMedication> scanLabel(List<String> imagePaths) async {
     final geminiKey = dotenv.env['GEMINI_API_KEY'];
-    final groqKey = dotenv.env['GROQ_API_KEY'];
 
-    if ((geminiKey == null || geminiKey.isEmpty) &&
-        (groqKey == null || groqKey.isEmpty)) {
-      throw Exception('Missing API keys for both Gemini and Groq');
+    if (geminiKey == null || geminiKey.isEmpty) {
+      throw Exception('Gemini API key is missing or invalid');
     }
 
-    try {
-      if (geminiKey != null && geminiKey.isNotEmpty) {
-        return await _scanWithGemini(geminiKey, imagePaths);
-      } else {
-        throw Exception('Gemini key is missing or invalid');
-      }
-    } catch (e) {
-      if (e is NotAMedicationException)
-        rethrow; // definitive, don't retry on Groq
-      if (groqKey != null && groqKey.isNotEmpty) {
-        debugPrint('Gemini failed or unavailable, falling back to Groq: $e');
-        return await _scanWithGroq(groqKey, imagePaths);
-      }
-      rethrow;
-    }
+    return await _scanWithGemini(geminiKey, imagePaths);
   }
 
   static Future<ScannedMedication> _scanWithGemini(
@@ -192,51 +175,6 @@ class OcrService {
     if (text == null || text.isEmpty) {
       throw Exception('No response from Gemini');
     }
-
-    return _parseJsonResponse(text, imagePaths);
-  }
-
-  static Future<ScannedMedication> _scanWithGroq(
-    String apiKey,
-    List<String> imagePaths,
-  ) async {
-    final contentList = <Map<String, dynamic>>[
-      {'type': 'text', 'text': _promptText},
-    ];
-
-    for (final path in imagePaths) {
-      final bytes = await File(path).readAsBytes();
-      final base64Image = base64Encode(bytes);
-      contentList.add({
-        'type': 'image_url',
-        'image_url': {'url': 'data:image/jpeg;base64,$base64Image'},
-      });
-    }
-
-    final response = await http.post(
-      Uri.parse('https://api.groq.com/openai/v1/chat/completions'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $apiKey',
-      },
-      body: jsonEncode({
-        'model': 'meta-llama/llama-4-scout-17b-16e-instruct',
-        'response_format': {'type': 'json_object'},
-        'messages': [
-          {'role': 'user', 'content': contentList},
-        ],
-        'temperature': 0.1,
-      }),
-    );
-
-    if (response.statusCode != 200) {
-      throw Exception(
-        'Groq API error: ${response.statusCode} - ${response.body}',
-      );
-    }
-
-    final jsonResponse = jsonDecode(response.body);
-    final text = jsonResponse['choices'][0]['message']['content'] as String;
 
     return _parseJsonResponse(text, imagePaths);
   }

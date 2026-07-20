@@ -1,0 +1,110 @@
+		rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─────────────── helpers ───────────────
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // caller is this exact user
+    function isUser(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // caller is a caregiver linked to this patient.
+    // relies on the deterministic relationship id "{patientId}_{caregiverId}".
+    function isCaregiverOf(patientId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/caregiverRelationships/$(patientId + '_' + request.auth.uid));
+    }
+
+    // ─────────────── users ───────────────
+    // a user manages their own doc; a linked caregiver may READ the patient's
+    // basic info (name, etc.) for the dashboard.
+    match /users/{userId} {
+    	allow read: if request.auth != null;
+      allow read: if isUser(userId) || isCaregiverOf(userId);
+      allow create, update, delete: if isUser(userId);
+    }
+
+    // ─────────────── profiles (doc id = uid) ───────────────
+    // owner manages their own; caregiver may read (allergies, emergency contact,
+    // medical conditions are useful to a caregiver). Remove the caregiver clause
+    // if you want profiles fully private.
+    match /profiles/{userId} {
+      allow read: if isUser(userId) || isCaregiverOf(userId);
+      allow write: if isUser(userId);
+    }
+
+    // ─────────────── medications ───────────────
+    match /medications/{medId} {
+      allow read: if isUser(resource.data.userId)
+                  || isCaregiverOf(resource.data.userId);
+      allow create: if isUser(request.resource.data.userId);
+      allow update, delete: if isUser(resource.data.userId);
+    }
+    
+    // ─────────────── medication diaries ───────────────
+    match /diaryNotes/{noteId} {
+      // Allow a user to read, update, or delete only their own notes
+      allow read, update, delete: if request.auth != null 
+      														&& request.auth.uid == resource.data.userId;
+      // Allow creating a note if the userId matches their auth uid
+      allow create: if request.auth != null 
+      							&& request.auth.uid == request.resource.data.userId;
+    }
+
+
+    // ─────────────── adherenceLogs ───────────────
+    match /adherenceLogs/{logId} {
+      allow read: if isUser(resource.data.userId)
+                  || isCaregiverOf(resource.data.userId);
+      allow create: if isUser(request.resource.data.userId);
+      allow update, delete: if isUser(resource.data.userId);
+    }
+
+    // ─────────────── caregiverRelationships ───────────────
+    // either party can read/create/delete the link.
+    match /caregiverRelationships/{relId} {
+      allow read: if isUser(resource.data.patientId)
+                  || isUser(resource.data.caregiverId);
+      allow create: if isUser(request.resource.data.patientId)
+                    || isUser(request.resource.data.caregiverId);
+      allow delete: if isUser(resource.data.patientId)
+                    || isUser(resource.data.caregiverId);
+    }
+
+    // ─────────────── inviteCodes (doc id = the 6-digit code) ───────────────
+    // patient creates a code for themselves. Any signed-in user may read a code
+    // (to redeem one they were given) and delete it (consumed on redemption).
+    // The 6-digit code itself is the shared secret; codes expire in 24h.
+    match /inviteCodes/{code} {
+      allow create: if isUser(request.resource.data.patientId);
+      allow read, delete: if isSignedIn();
+    }
+
+    // ─────────────── notifications ───────────────
+    // written by the Cloud Function (Admin SDK bypasses these rules).
+    // the recipient can read, mark-read (update), and dismiss (delete) their own.
+    // no client `create` — only the function creates them.
+    match /notifications/{notifId} {
+      allow read: if isUser(resource.data.userId);
+      allow update, delete: if isUser(resource.data.userId);
+    }
+
+    // ─────────────── messagesOfTheDay ───────────────
+    // patient reads messages addressed to them; caregiver reads ones they sent.
+    // only a linked caregiver may send.
+    match /messagesOfTheDay/{patientId} {
+  		// patient reads their own message; their caregivers can read it too
+  		allow read: if isUser(patientId) || isCaregiverOf(patientId);
+  		// only a linked caregiver can create/update/delete the message
+  		allow write: if isCaregiverOf(patientId);
+		}
+
+    // everything else denied by default (no catch-all allow)
+  }
+}
